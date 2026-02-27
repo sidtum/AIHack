@@ -10,10 +10,11 @@ from dotenv import load_dotenv
 from database import (
     init_db, get_user_profile, update_user_profile,
     update_eeo_fields, get_profile_completeness, save_study_session,
-    get_study_session, get_linq_config,
+    get_study_session, get_linq_config, get_job_applications,
+    update_job_application_status,
 )
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 app = FastAPI(title="Sayam Backend")
 
@@ -59,6 +60,8 @@ def classify_intent(text: str) -> str:
         return "academic"
     if any(kw in t for kw in ["yes", "proceed", "go ahead", "do it", "confirm"]):
         return "confirm"
+    if any(kw in t for kw in ["no", "nope", "skip", "don't", "use existing", "use original", "no thanks"]):
+        return "decline"
     if any(kw in t for kw in ["quiz", "test me", "start quiz"]):
         return "quiz"
     return "general"
@@ -90,6 +93,17 @@ async def update_profile_endpoint(request: Request):
     data = await request.json()
     update_user_profile(data)
     return {"status": "success", "profile": get_user_profile()}
+
+@app.get("/job-applications")
+def job_applications_endpoint():
+    return get_job_applications()
+
+@app.patch("/job-applications/{app_id}/status")
+async def update_application_status(app_id: int, request: Request):
+    data = await request.json()
+    update_job_application_status(app_id, data["status"])
+    return {"status": "ok"}
+
 
 @app.post("/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
@@ -203,10 +217,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         pending_action = {"type": "career", "data": text}
                         plan = (
                             "Action Plan Generated:\n"
-                            "1. Retrieve Summer 2026 Internships.\n"
-                            "2. Filter for remote/local SWE roles based on profile.\n"
-                            "3. Tailor resume bullet points for matching jobs.\n"
-                            "4. Automate applications via Chromium.\n\n"
+                            "1. Find a Summer 2026 SWE internship on SimplifyJobs.\n"
+                            "2. Ask whether to tailor your resume for the specific role.\n"
+                            "3. Generate tailored PDF if requested, then auto-apply via Chromium.\n\n"
                             "Shall I proceed?"
                         )
                         await ws_send(json.dumps({"type": "agent_response", "text": plan}))
@@ -229,6 +242,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             pending_action_copy = dict(pending_action)
                             pending_action = {"type": None, "data": None}
                             await handle_career_confirm(pending_action_copy)
+                        elif pending_action["type"] == "resume_choice":
+                            pending_action_copy = dict(pending_action)
+                            pending_action = {"type": None, "data": None}
+                            asyncio.create_task(handle_resume_choice(pending_action_copy, use_tailored=True))
                         elif pending_action["type"] == "academic":
                             pending_action_copy = dict(pending_action)
                             pending_action = {"type": None, "data": None}
@@ -237,6 +254,17 @@ async def websocket_endpoint(websocket: WebSocket):
                             await ws_send(json.dumps({
                                 "type": "agent_response",
                                 "text": "I'm not sure what to confirm. Try asking me to apply to jobs or help you study."
+                            }))
+
+                    elif intent == "decline":
+                        if pending_action["type"] == "resume_choice":
+                            pending_action_copy = dict(pending_action)
+                            pending_action = {"type": None, "data": None}
+                            asyncio.create_task(handle_resume_choice(pending_action_copy, use_tailored=False))
+                        else:
+                            await ws_send(json.dumps({
+                                "type": "agent_response",
+                                "text": "Okay! Let me know if there's anything else I can help with."
                             }))
 
                     else:
@@ -253,7 +281,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 async def handle_career_confirm(action: dict):
-    from career_engine import run_career_flow
+    from career_engine import scrape_first_supported_job
     profile = get_user_profile()
 
     eeo_fields = ["gender", "race_ethnicity", "veteran_status", "disability_status", "work_authorization"]
@@ -276,9 +304,71 @@ async def handle_career_confirm(action: dict):
         }))
         return
 
+    global pending_action
     await ws_send(json.dumps({"type": "status", "text": "Executing"}))
-    await ws_send(json.dumps({"type": "thought", "text": "Starting career execution..."}))
-    asyncio.create_task(run_career_flow(profile, ws_send))
+    await ws_send(json.dumps({"type": "thought", "text": "Scanning SimplifyJobs for a matching internship..."}))
+
+    job = await asyncio.get_event_loop().run_in_executor(None, scrape_first_supported_job)
+
+    if not job:
+        await ws_send(json.dumps({
+            "type": "agent_response",
+            "text": "No open Greenhouse or Lever internship found on SimplifyJobs right now. Try again later."
+        }))
+        await ws_send(json.dumps({"type": "status", "text": "Idle"}))
+        return
+
+    await ws_send(json.dumps({
+        "type": "thought",
+        "text": f"Found: {job['company']} — {job['role']} ({job['ats'].title()})"
+    }))
+
+    pending_action = {"type": "resume_choice", "data": {"job": job, "profile": profile}}
+
+    await ws_send(json.dumps({
+        "type": "agent_response",
+        "text": (
+            f"Found **{job['company']}** — {job['role']}.\n\n"
+            "Would you like me to create a **tailored resume** for this application? "
+            "I'll rephrase your existing experience bullets to highlight skills matching the job — "
+            "no fabrication, just better framing.\n\n"
+            "**Yes** — create a tailored resume\n"
+            "**No** — use your existing resume"
+        )
+    }))
+    await ws_send(json.dumps({"type": "status", "text": "Idle"}))
+
+
+async def handle_resume_choice(action: dict, use_tailored: bool):
+    from career_engine import run_career_flow
+    job = action["data"]["job"]
+    profile = action["data"]["profile"]
+    tailored_resume_path = None
+
+    if use_tailored:
+        from resume_tailor import tailor_resume
+        await ws_send(json.dumps({"type": "status", "text": "Executing"}))
+        await ws_send(json.dumps({"type": "thought", "text": "Creating your tailored resume..."}))
+        try:
+            tailored_resume_path = await tailor_resume(profile, job, ws_send)
+            await ws_send(json.dumps({
+                "type": "thought",
+                "text": f"Tailored resume ready: {os.path.basename(tailored_resume_path)}"
+            }))
+        except Exception as e:
+            await ws_send(json.dumps({
+                "type": "thought",
+                "text": f"Resume tailoring failed ({e}). Falling back to original resume."
+            }))
+            tailored_resume_path = None
+    else:
+        await ws_send(json.dumps({
+            "type": "agent_response",
+            "text": "Using your existing resume. Starting application..."
+        }))
+
+    await ws_send(json.dumps({"type": "status", "text": "Executing"}))
+    asyncio.create_task(run_career_flow(profile, ws_send, job=job, tailored_resume_path=tailored_resume_path))
 
 
 async def handle_academic_confirm(action: dict):

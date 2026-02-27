@@ -14,6 +14,7 @@ import os
 import re
 import httpx
 from dotenv import load_dotenv
+from database import save_job_application
 
 load_dotenv()
 
@@ -158,7 +159,7 @@ STRATEGIC GUIDANCE:
 Execute the application completion using these principles and submit when finished."""
 
 
-async def apply_to_job(job: dict, profile: dict, ws_broadcast) -> str | None:
+async def apply_to_job(job: dict, profile: dict, ws_broadcast, tailored_resume_path: str | None = None) -> str | None:
     """Browser-use agent fills the ATS form. Returns None on success, error string on failure."""
     try:
         from browser_use import Agent, Browser, ChatOpenAI, Tools, ActionResult, BrowserSession
@@ -170,7 +171,12 @@ async def apply_to_job(job: dict, profile: dict, ws_broadcast) -> str | None:
             sensitive_data["phone_number"] = profile["phone"]
 
         file_paths = []
-        resume_path = profile.get("resume_pdf_path")
+        # Use tailored resume if provided and file exists, otherwise fall back to original
+        resume_path = (
+            tailored_resume_path
+            if (tailored_resume_path and os.path.exists(tailored_resume_path))
+            else profile.get("resume_pdf_path")
+        )
         transcript_path = profile.get("transcript_pdf_path")
 
         if resume_path and os.path.exists(resume_path):
@@ -297,37 +303,43 @@ async def apply_to_job(job: dict, profile: dict, ws_broadcast) -> str | None:
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
 
-async def run_career_flow(profile: dict, ws_broadcast):
+async def run_career_flow(
+    profile: dict,
+    ws_broadcast,
+    job: dict | None = None,
+    tailored_resume_path: str | None = None,
+):
     try:
         await ws_broadcast(json.dumps({"type": "status", "text": "Executing"}))
-        # Open a single agent bubble — all intermediates go in as thoughts
-        await ws_broadcast(json.dumps({
-            "type": "thought",
-            "text": "Scanning SimplifyJobs for a Greenhouse or Lever internship..."
-        }))
 
-        # Phase 1: instant Python scrape (no browser, no LLM)
-        job = await asyncio.get_event_loop().run_in_executor(None, scrape_first_supported_job)
-
-        if not job:
+        if job is None:
+            # Phase 1: instant Python scrape (no browser, no LLM)
             await ws_broadcast(json.dumps({
-                "type": "agent_response",
-                "text": "No open Greenhouse or Lever internship found on SimplifyJobs right now. Try again later."
+                "type": "thought",
+                "text": "Scanning SimplifyJobs for a Greenhouse or Lever internship..."
             }))
-            await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
-            return
+            job = await asyncio.get_event_loop().run_in_executor(None, scrape_first_supported_job)
 
-        await ws_broadcast(json.dumps({
-            "type": "thought",
-            "text": f"Found: {job['company']} — {job['role']} ({job['ats'].title()})"
-        }))
+            if not job:
+                await ws_broadcast(json.dumps({
+                    "type": "agent_response",
+                    "text": "No open Greenhouse or Lever internship found on SimplifyJobs right now. Try again later."
+                }))
+                await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
+                return
+
+            await ws_broadcast(json.dumps({
+                "type": "thought",
+                "text": f"Found: {job['company']} — {job['role']} ({job['ats'].title()})"
+            }))
+
         await ws_broadcast(json.dumps({
             "type": "thought",
             "text": f"Starting {job['ats'].title()} application for {job['company']}..."
         }))
 
         # Phase 2: browser-use fills the form
-        error = await apply_to_job(job, profile, ws_broadcast)
+        error = await apply_to_job(job, profile, ws_broadcast, tailored_resume_path=tailored_resume_path)
 
         if error:
             await ws_broadcast(json.dumps({
@@ -335,6 +347,13 @@ async def run_career_flow(profile: dict, ws_broadcast):
                 "text": error
             }))
         else:
+            save_job_application(
+                company=job["company"],
+                role_title=job["role"],
+                url=job["apply_url"],
+                status="Applied",
+                tailored_resume_path=tailored_resume_path,
+            )
             await ws_broadcast(json.dumps({
                 "type": "agent_response",
                 "text": f"Application to **{job['company']}** — {job['role']} is complete."

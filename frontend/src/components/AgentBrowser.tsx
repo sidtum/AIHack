@@ -5,9 +5,10 @@ import { ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
 interface AgentBrowserProps {
   navigateRef?: React.MutableRefObject<((url: string) => void) | null>;
   forceUpdateRef?: React.MutableRefObject<(() => void) | null>;
+  onOpenCareerDashboard?: () => void;
 }
 
-export function AgentBrowser({ navigateRef, forceUpdateRef }: AgentBrowserProps) {
+export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboard }: AgentBrowserProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inputUrl, setInputUrl] = useState('https://www.google.com');
   const [canGoBack, setCanGoBack] = useState(false);
@@ -163,6 +164,23 @@ export function AgentBrowser({ navigateRef, forceUpdateRef }: AgentBrowserProps)
           }}
         >
           Carmen
+        </button>
+
+        <button
+          onClick={onOpenCareerDashboard}
+          title="Open Career Dashboard"
+          style={{
+            background: 'rgba(80,200,150,0.08)',
+            border: '1px solid rgba(80,200,150,0.22)',
+            borderRadius: 6, padding: '3px 8px',
+            fontSize: 10, color: 'rgba(100,230,170,0.7)',
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            fontWeight: 500, letterSpacing: '0.08em',
+            flexShrink: 0, whiteSpace: 'nowrap',
+            textTransform: 'uppercase',
+          }}
+        >
+          Career
         </button>
 
         <input

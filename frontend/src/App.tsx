@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, ArrowUp, Minus, X, SlidersHorizontal, ChevronRight, Volume2, VolumeX, Maximize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { ProfileDrawer } from './components/ProfileDrawer';
@@ -7,6 +7,7 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { StudyPanel } from './components/StudyPanel';
 import { StudyResults, StudyResultsData } from './components/StudyResults';
 import { AgentBrowser } from './components/AgentBrowser';
+import { CareerDashboard } from './components/CareerDashboard';
 import { SmsBadge } from './components/SmsBadge';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useTTS } from './hooks/useTTS';
@@ -169,6 +170,7 @@ function App() {
   const [statusText, setStatusText] = useState('idle');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isCareerDashboardOpen, setIsCareerDashboardOpen] = useState(false);
   const [highlightFields, setHighlightFields] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
   const [focused, setFocused] = useState(false);
@@ -216,15 +218,16 @@ function App() {
       .catch(() => setShowOnboarding(false));
   }, []);
 
-  // ── Hide/restore native browser when study overlay opens/closes ──
-  useEffect(() => {
+  // ── Hide/restore native browser when study overlay or career dashboard opens/closes ──
+  // useLayoutEffect fires before paint, preventing a single-frame flash of Google showing through overlays
+  useLayoutEffect(() => {
     const ipc = (window as any).require?.('electron')?.ipcRenderer;
-    if (mode !== 'chat') {
+    if (mode !== 'chat' || isCareerDashboardOpen) {
       ipc?.send('hide-browser');
     } else {
       browserForceUpdateRef.current?.();
     }
-  }, [mode]);
+  }, [mode, isCareerDashboardOpen]);
 
   // ── WebSocket connection with auto-reconnect ──
   const connectWSRef = useRef<() => void>(() => { });
@@ -916,10 +919,20 @@ function App() {
           </AnimatePresence>
         </motion.div>
 
-        {/* ── RIGHT PANE (browser — hidden during onboarding so native layer doesn't overlap) ── */}
-        {!showOnboarding && (
-          <AgentBrowser navigateRef={browserNavigateRef} forceUpdateRef={browserForceUpdateRef} />
-        )}
+        {/* ── RIGHT PANE — browser + career dashboard overlay (chat sidebar stays visible) ── */}
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {!showOnboarding && (
+            <AgentBrowser
+              navigateRef={browserNavigateRef}
+              forceUpdateRef={browserForceUpdateRef}
+              onOpenCareerDashboard={() => setIsCareerDashboardOpen(true)}
+            />
+          )}
+          <CareerDashboard
+            isOpen={isCareerDashboardOpen}
+            onClose={() => setIsCareerDashboardOpen(false)}
+          />
+        </div>
 
         {/* ── STUDY OVERLAY (covers only content area — header stays visible) ── */}
         <AnimatePresence>

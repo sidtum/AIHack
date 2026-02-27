@@ -49,9 +49,19 @@ def init_db():
         role_title TEXT,
         url TEXT,
         status TEXT,
-        applied_date TEXT
+        applied_date TEXT,
+        tailored_resume_path TEXT
     )
     ''')
+
+    # Migrate: add tailored_resume_path if missing (for existing DBs)
+    ja_cols = {row[1] for row in cursor.execute("PRAGMA table_info(job_applications)").fetchall()}
+    if "tailored_resume_path" not in ja_cols:
+        cursor.execute("ALTER TABLE job_applications ADD COLUMN tailored_resume_path TEXT")
+
+    # Ensure tailored resumes folder exists
+    tailored_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "tailored_resumes")
+    os.makedirs(tailored_dir, exist_ok=True)
 
     # Create Study Sessions Table
     cursor.execute('''
@@ -158,6 +168,40 @@ def get_study_session(session_id: int):
     if row:
         return dict(row)
     return None
+
+def save_job_application(company: str, role_title: str, url: str,
+                         status: str = "Applied",
+                         tailored_resume_path: str = None) -> int:
+    conn = sqlite3.connect(DB_FILENAME)
+    cursor = conn.cursor()
+    from datetime import datetime, timezone
+    applied_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "INSERT INTO job_applications (company, role_title, url, status, applied_date, tailored_resume_path) VALUES (?, ?, ?, ?, ?, ?)",
+        (company, role_title, url, status, applied_date, tailored_resume_path),
+    )
+    app_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return app_id
+
+
+def update_job_application_status(app_id: int, status: str) -> None:
+    conn = sqlite3.connect(DB_FILENAME)
+    conn.execute("UPDATE job_applications SET status = ? WHERE id = ?", (status, app_id))
+    conn.commit()
+    conn.close()
+
+
+def get_job_applications() -> list[dict]:
+    conn = sqlite3.connect(DB_FILENAME)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM job_applications ORDER BY applied_date DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
 
 def get_profile_completeness():
     """Check which fields are filled for onboarding."""

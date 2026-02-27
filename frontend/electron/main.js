@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, WebContentsView } from 'electron';
+import { app, BrowserWindow, ipcMain, WebContentsView, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -115,6 +115,8 @@ app.whenReady().then(() => {
   ipcMain.on('hide-browser', () => {
     browserView?.setBounds({ x: 0, y: 0, width: 0, height: 0 });
   });
+
+  ipcMain.on('open-file', (_, filePath) => shell.openPath(filePath));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
