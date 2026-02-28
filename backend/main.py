@@ -226,6 +226,34 @@ async def update_session_title(session_id: int, request: Request):
     return {"status": "ok"}
 
 
+@app.post("/lecture-sessions/{session_id}/flashcards")
+async def flashcards_from_session(session_id: int):
+    from study_mode_manager import generate_anki_cards
+    from fastapi import HTTPException
+    session = get_lecture_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    content = session.get("notes") or session.get("transcript") or ""
+    title = session.get("title") or ""
+    cards = await generate_anki_cards(content, title)
+    return {"cards": cards}
+
+
+@app.post("/lecture-sessions/{session_id}/quiz")
+async def quiz_from_session(session_id: int):
+    from quiz_generator import generate_study_material
+    from fastapi import HTTPException
+    session = get_lecture_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    content = session.get("notes") or session.get("transcript") or ""
+    title = session.get("title") or ""
+    result = await generate_study_material(content, title)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to generate quiz from notes")
+    return result
+
+
 @app.post("/upload-transcript")
 async def upload_transcript(file: UploadFile = File(...)):
     content = await file.read()

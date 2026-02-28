@@ -348,7 +348,20 @@ function App() {
               study_plan: d.study_plan,
               flashcard_questions: d.flashcard_questions ?? [],
             });
-            setMode('results');
+            // If a notes-based quiz was taken from Study Mode, stay there and
+            // surface the AI study plan in the Study Plan section instead of
+            // switching to the full results overlay.
+            setMode(prev => {
+              if (prev === 'study_mode') {
+                if (d.study_plan?.length > 0) {
+                  setStudyPlan(
+                    (d.study_plan as string[]).map((text: string, i: number) => ({ step: i + 1, text }))
+                  );
+                }
+                return 'study_mode';
+              }
+              return 'results';
+            });
           }
           else if (d.type === 'study_qa_response') {
             setQaMessages(p => [...p, { role: 'agent', text: d.text }]);

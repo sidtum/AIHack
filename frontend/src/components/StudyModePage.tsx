@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QuizView } from './QuizView';
 import {
     BookOpen, ExternalLink, RotateCcw, ShieldOff,
     Sparkles, Loader2, GraduationCap, Library, CheckCircle2,
-    Clock, Trash2, ChevronRight, FolderOpen, Save, PlayCircle,
+    Clock, Trash2, ChevronRight, FolderOpen, Save, PlayCircle, Mic,
 } from 'lucide-react';
 import { useStudySessions, StudySession } from '../hooks/useStudySessions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AnkiCard { front: string; back: string; }
 interface OsuResource { title: string; url: string; tag: string; }
+
+interface NoteSession { id: number; title: string; created_at: string; }
 
 interface StudyModePageProps {
     subject: string;
@@ -239,6 +242,130 @@ function LauncherCard({ wsSend }: { wsSend: (msg: object) => void }) {
     );
 }
 
+// ─── Notes Study Card ─────────────────────────────────────────────────────────
+function NotesStudyCard({ noteSessions, selectedNoteId, setSelectedNoteId, isLoading, error, onFlashcards, onQuiz }: {
+    noteSessions: NoteSession[];
+    selectedNoteId: number | null;
+    setSelectedNoteId: (id: number | null) => void;
+    isLoading: boolean;
+    error: string;
+    onFlashcards: () => void;
+    onQuiz: () => void;
+}) {
+    const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
+            style={{
+                background: 'linear-gradient(135deg, rgba(150,100,255,0.1), rgba(100,60,200,0.05))',
+                border: '1.5px solid rgba(150,100,255,0.25)',
+                borderRadius: 20, padding: '22px 26px',
+                display: 'flex', flexDirection: 'column', gap: 14,
+                boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(150,100,255,0.1)',
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Mic size={17} style={{ color: 'rgba(150,100,255,0.8)' }} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#e0d0ff', letterSpacing: '0.02em' }}>
+                    Study from Lecture Notes
+                </h3>
+            </div>
+
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(200,180,255,0.45)', lineHeight: 1.6 }}>
+                Pick a recorded lecture to generate flashcards or a 5-question quiz from your AI notes — no Canvas needed.
+            </p>
+
+            {noteSessions.length === 0 ? (
+                <div style={{ padding: '14px 16px', background: 'rgba(150,100,255,0.05)', borderRadius: 12, border: '1px dashed rgba(150,100,255,0.18)', textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(200,180,255,0.3)' }}>
+                        No recorded lectures yet. Use the <strong style={{ color: 'rgba(150,100,255,0.5)' }}>NOTES</strong> button in the toolbar to record one first.
+                    </p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {noteSessions.slice(0, 5).map(s => (
+                        <motion.div
+                            key={s.id}
+                            whileHover={{ background: selectedNoteId === s.id ? 'rgba(150,100,255,0.16)' : 'rgba(150,100,255,0.08)' }}
+                            onClick={() => setSelectedNoteId(selectedNoteId === s.id ? null : s.id)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 10,
+                                padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                                background: selectedNoteId === s.id ? 'rgba(150,100,255,0.12)' : 'rgba(150,100,255,0.04)',
+                                border: `1px solid ${selectedNoteId === s.id ? 'rgba(150,100,255,0.42)' : 'rgba(150,100,255,0.1)'}`,
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            <BookOpen size={12} style={{ color: 'rgba(150,100,255,0.6)', flexShrink: 0 }} />
+                            <span style={{ flex: 1, fontSize: 12.5, color: selectedNoteId === s.id ? '#d0b8ff' : 'rgba(200,180,255,0.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {s.title.length > 32 ? s.title.slice(0, 32) + '…' : s.title}
+                            </span>
+                            <span style={{ fontSize: 10.5, color: 'rgba(150,100,255,0.4)', flexShrink: 0 }}>
+                                {fmtDate(s.created_at)}
+                            </span>
+                            {selectedNoteId === s.id && (
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(150,100,255,0.85)', flexShrink: 0 }} />
+                            )}
+                        </motion.div>
+                    ))}
+                </div>
+            )}
+
+            {noteSessions.length > 0 && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <motion.button
+                        whileHover={{ scale: selectedNoteId && !isLoading ? 1.03 : 1 }}
+                        whileTap={{ scale: selectedNoteId && !isLoading ? 0.97 : 1 }}
+                        onClick={onFlashcards}
+                        disabled={!selectedNoteId || isLoading}
+                        style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                            background: 'transparent',
+                            border: `1.5px solid ${selectedNoteId && !isLoading ? 'rgba(150,100,255,0.5)' : 'rgba(150,100,255,0.15)'}`,
+                            borderRadius: 12, padding: '9px 16px',
+                            color: selectedNoteId && !isLoading ? '#c8a8ff' : 'rgba(150,100,255,0.25)',
+                            fontSize: 12.5, fontWeight: 600,
+                            cursor: selectedNoteId && !isLoading ? 'pointer' : 'default',
+                            transition: 'all 0.22s',
+                        }}
+                    >
+                        {isLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <BookOpen size={13} />}
+                        <span>Flashcards</span>
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: selectedNoteId && !isLoading ? 1.03 : 1 }}
+                        whileTap={{ scale: selectedNoteId && !isLoading ? 0.97 : 1 }}
+                        onClick={onQuiz}
+                        disabled={!selectedNoteId || isLoading}
+                        style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                            background: selectedNoteId && !isLoading ? 'linear-gradient(135deg, rgba(150,100,255,0.4), rgba(100,60,200,0.25))' : 'rgba(150,100,255,0.07)',
+                            border: `1.5px solid ${selectedNoteId && !isLoading ? 'rgba(150,100,255,0.45)' : 'rgba(150,100,255,0.1)'}`,
+                            borderRadius: 12, padding: '9px 16px',
+                            color: selectedNoteId && !isLoading ? '#e0d0ff' : 'rgba(150,100,255,0.25)',
+                            fontSize: 12.5, fontWeight: 600,
+                            cursor: selectedNoteId && !isLoading ? 'pointer' : 'default',
+                            transition: 'all 0.22s',
+                            boxShadow: selectedNoteId && !isLoading ? '0 4px 20px rgba(120,80,220,0.25)' : 'none',
+                        }}
+                    >
+                        {isLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
+                        <span>Take Quiz</span>
+                    </motion.button>
+                </div>
+            )}
+
+            {error && (
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,120,120,0.7)' }}>{error}</p>
+            )}
+        </motion.div>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function StudyModePage({
     subject, blockedCount, ankiCards, osuResources,
@@ -250,6 +377,53 @@ export function StudyModePage({
     const [savedToast, setSavedToast] = useState(false);
     const [loadedSession, setLoadedSession] = useState<StudySession | null>(null);
     const currentSessionId = useRef<string | undefined>(undefined);
+
+    // ── Lecture notes integration ──────────────────────────────────────────
+    const [noteSessions, setNoteSessions] = useState<NoteSession[]>([]);
+    const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+    const [noteCards, setNoteCards] = useState<AnkiCard[]>([]);
+    const [isLoadingNote, setIsLoadingNote] = useState(false);
+    const [noteLoadError, setNoteLoadError] = useState('');
+    const [noteQuizData, setNoteQuizData] = useState<{ course_name: string; concepts: any[]; questions: any[] } | null>(null);
+    const [noteQuizResult, setNoteQuizResult] = useState<{ score: number; total: number } | null>(null);
+    const [lastNoteQuizResult, setLastNoteQuizResult] = useState<{ score: number; total: number; courseName: string } | null>(null);
+
+    useEffect(() => {
+        fetch('http://127.0.0.1:8000/lecture-sessions')
+            .then(r => r.json())
+            .then(setNoteSessions)
+            .catch(() => {});
+    }, []);
+
+    const handleNoteFlashcards = async () => {
+        if (!selectedNoteId) return;
+        setIsLoadingNote(true);
+        setNoteLoadError('');
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/lecture-sessions/${selectedNoteId}/flashcards`, { method: 'POST' });
+            const data = await res.json();
+            setNoteCards(data.cards || []);
+        } catch {
+            setNoteLoadError('Failed to generate flashcards. Please try again.');
+        } finally {
+            setIsLoadingNote(false);
+        }
+    };
+
+    const handleNoteQuiz = async () => {
+        if (!selectedNoteId) return;
+        setIsLoadingNote(true);
+        setNoteLoadError('');
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/lecture-sessions/${selectedNoteId}/quiz`, { method: 'POST' });
+            const data = await res.json();
+            setNoteQuizData(data);
+        } catch {
+            setNoteLoadError('Failed to generate quiz. Please try again.');
+        } finally {
+            setIsLoadingNote(false);
+        }
+    };
 
     useEffect(() => {
         if (ankiCards.length === 0 && osuResources.length === 0) return;
@@ -347,6 +521,81 @@ export function StudyModePage({
 
                 {/* ── Launch Card (only in live, non-loaded mode) ──────────── */}
                 {!loadedSession && <LauncherCard wsSend={wsSend} />}
+
+                {/* ── Study from Lecture Notes ─────────────────────────────── */}
+                {!loadedSession && (
+                    <NotesStudyCard
+                        noteSessions={noteSessions}
+                        selectedNoteId={selectedNoteId}
+                        setSelectedNoteId={setSelectedNoteId}
+                        isLoading={isLoadingNote}
+                        error={noteLoadError}
+                        onFlashcards={handleNoteFlashcards}
+                        onQuiz={handleNoteQuiz}
+                    />
+                )}
+
+                {/* ── Recent Quiz Score ────────────────────────────────────── */}
+                {!loadedSession && lastNoteQuizResult && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                            background: 'rgba(150,100,255,0.07)',
+                            border: '1px solid rgba(150,100,255,0.2)',
+                            borderRadius: 16, padding: '14px 20px',
+                            display: 'flex', alignItems: 'center', gap: 16,
+                        }}
+                    >
+                        {/* Score fraction */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 48, flexShrink: 0 }}>
+                            <span style={{
+                                fontSize: 24, fontWeight: 700, lineHeight: 1,
+                                color: lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.8 ? '#6ee7a0'
+                                    : lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.5 ? '#f0c050' : '#fca5a5',
+                            }}>
+                                {lastNoteQuizResult.score}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'rgba(150,100,255,0.45)', marginTop: 1 }}>
+                                / {lastNoteQuizResult.total}
+                            </span>
+                        </div>
+                        <div style={{ width: 1, height: 36, background: 'rgba(150,100,255,0.15)', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: '0 0 2px', fontSize: 10, color: 'rgba(150,100,255,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Recent Quiz Score</p>
+                            <p style={{ margin: 0, fontSize: 13, color: '#d0b8ff', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {lastNoteQuizResult.courseName}
+                            </p>
+                        </div>
+                        <div style={{
+                            flexShrink: 0, padding: '4px 11px', borderRadius: 20,
+                            fontSize: 12, fontWeight: 700,
+                            background: lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.8 ? 'rgba(80,200,130,0.12)'
+                                : lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.5 ? 'rgba(240,180,60,0.12)' : 'rgba(255,80,80,0.12)',
+                            border: `1px solid ${lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.8 ? 'rgba(80,200,130,0.3)'
+                                : lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.5 ? 'rgba(240,180,60,0.3)' : 'rgba(255,80,80,0.3)'}`,
+                            color: lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.8 ? '#6ee7a0'
+                                : lastNoteQuizResult.score / lastNoteQuizResult.total >= 0.5 ? '#f0c050' : '#fca5a5',
+                        }}>
+                            {Math.round(lastNoteQuizResult.score / lastNoteQuizResult.total * 100)}%
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ── Flashcards from Lecture Notes ────────────────────────── */}
+                {noteCards.length > 0 && !loadedSession && (
+                    <section>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                            <Mic size={15} style={{ color: 'rgba(150,100,255,0.7)' }} />
+                            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'rgba(220,200,255,0.8)', letterSpacing: '0.04em' }}>Flashcards from Lecture Notes</h2>
+                            <span style={{ fontSize: 11, background: 'rgba(150,100,255,0.13)', border: '1px solid rgba(150,100,255,0.2)', borderRadius: 10, padding: '2px 8px', color: 'rgba(150,100,255,0.65)' }}>{noteCards.length}</span>
+                        </div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                            {noteCards.map((card, i) => <FlipCard key={i} card={card} index={i} />)}
+                        </motion.div>
+                    </section>
+                )}
 
                 {/* ── Flashcards ──────────────────────────────────────────── */}
                 <section>
@@ -453,6 +702,116 @@ export function StudyModePage({
                     <HistoryDrawer sessions={sessions} onLoad={s => { setLoadedSession(s); setShowHistory(false); }}
                         onDelete={id => { deleteSession(id); setSessions(listSessions()); if (loadedSession?.id === id) setLoadedSession(null); }}
                         onClose={() => setShowHistory(false)} />
+                )}
+            </AnimatePresence>
+
+            {/* ── Inline notes quiz overlay (stays within study mode — browser remains hidden) ── */}
+            <AnimatePresence>
+                {noteQuizData && (
+                    <motion.div
+                        key="note-quiz-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        style={{
+                            position: 'absolute', inset: 0, zIndex: 30,
+                            background: 'linear-gradient(150deg, #0a2020 0%, #0e2838 40%, #0c1a2e 100%)',
+                            display: 'flex', flexDirection: 'column',
+                        }}
+                    >
+                        {noteQuizResult ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.94 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                style={{
+                                    flex: 1, display: 'flex', flexDirection: 'column',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    padding: '40px 24px', gap: 28,
+                                }}
+                            >
+                                {/* Score ring */}
+                                <div style={{ position: 'relative', width: 120, height: 120 }}>
+                                    <svg width="120" height="120" style={{ transform: 'rotate(-90deg)' }}>
+                                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+                                        <circle
+                                            cx="60" cy="60" r="50" fill="none"
+                                            stroke={noteQuizResult.score / noteQuizResult.total >= 0.8 ? '#6ee7a0' : noteQuizResult.score / noteQuizResult.total >= 0.5 ? '#f0c050' : '#fca5a5'}
+                                            strokeWidth="8"
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${2 * Math.PI * 50}`}
+                                            strokeDashoffset={`${2 * Math.PI * 50 * (1 - noteQuizResult.score / noteQuizResult.total)}`}
+                                            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                                        />
+                                    </svg>
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <span style={{ fontSize: 28, fontWeight: 700, color: '#ffe8b0', lineHeight: 1 }}>
+                                            {noteQuizResult.score}
+                                        </span>
+                                        <span style={{ fontSize: 12, color: 'rgba(255,240,180,0.4)' }}>
+                                            / {noteQuizResult.total}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Title + message */}
+                                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <h2 style={{ margin: 0, fontFamily: "'Instrument Serif', serif", fontSize: 26, fontWeight: 400, color: '#ffe8b0', fontStyle: 'italic' }}>
+                                        {noteQuizResult.score === noteQuizResult.total ? 'Perfect score!' :
+                                         noteQuizResult.score / noteQuizResult.total >= 0.8 ? 'Great work!' :
+                                         noteQuizResult.score / noteQuizResult.total >= 0.5 ? 'Good effort!' : 'Keep studying!'}
+                                    </h2>
+                                    <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,240,180,0.5)', lineHeight: 1.6 }}>
+                                        You got <strong style={{ color: '#ffe8b0' }}>{noteQuizResult.score} of {noteQuizResult.total}</strong> questions correct
+                                        {' '}({Math.round(noteQuizResult.score / noteQuizResult.total * 100)}%).
+                                        <br />A personalised study plan is being generated below.
+                                    </p>
+                                </div>
+
+                                {/* Back button */}
+                                <motion.button
+                                    whileHover={{ scale: 1.04 }}
+                                    whileTap={{ scale: 0.96 }}
+                                    onClick={() => { setNoteQuizData(null); setNoteQuizResult(null); }}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #d4a030, #a07020)',
+                                        border: 'none', borderRadius: 14, padding: '13px 36px',
+                                        color: '#fff8e0', fontSize: 14, fontWeight: 600,
+                                        cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                                        boxShadow: '0 4px 20px rgba(200,140,20,0.35)',
+                                    }}
+                                >
+                                    Back to Study Mode
+                                </motion.button>
+                            </motion.div>
+                        ) : (
+                            <QuizView
+                                fullScreen
+                                data={{
+                                    course: noteQuizData.course_name,
+                                    concepts: noteQuizData.concepts,
+                                    questions: noteQuizData.questions,
+                                }}
+                                onClose={() => { setNoteQuizData(null); setNoteQuizResult(null); }}
+                                onQuizComplete={(score, total, wrongQuestions) => {
+                                    wsSend({
+                                        type: 'quiz_complete',
+                                        score,
+                                        total,
+                                        wrong_questions: wrongQuestions,
+                                        course_name: noteQuizData.course_name,
+                                        concepts: noteQuizData.concepts,
+                                    });
+                                    setNoteQuizResult({ score, total });
+                                    setLastNoteQuizResult({ score, total, courseName: noteQuizData.course_name });
+                                    handleNoteFlashcards();
+                                }}
+                            />
+                        )}
+                    </motion.div>
                 )}
             </AnimatePresence>
         </motion.div>
