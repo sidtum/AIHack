@@ -355,6 +355,8 @@ function App() {
           }
           else if (d.type === 'study_mode_active') {
             setMode('study_mode');
+            setIsCareerDashboardOpen(false);
+            setIsNotesDashboardOpen(false);
             setStudySubject(d.subject || '');
             // Tell Electron to start blocking sites
             const ipc2 = (window as any).require?.('electron')?.ipcRenderer;
@@ -691,7 +693,7 @@ function App() {
             {/* ── Study Mode toggle switch ── */}
             <div
               style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6, cursor: 'pointer', ...({ WebkitAppRegion: 'no-drag' } as any) }}
-              onClick={() => setMode(mode === 'study_mode' ? 'chat' : 'study_mode')}
+              onClick={() => { setMode(mode === 'study_mode' ? 'chat' : 'study_mode'); if (mode !== 'study_mode') { setIsCareerDashboardOpen(false); setIsNotesDashboardOpen(false); } }}
               title={mode === 'study_mode' ? 'Exit Study Mode' : 'Enter Study Mode'}
             >
               <span style={{ fontSize: 9.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: mode === 'study_mode' ? 'rgba(240,180,60,0.9)' : 'rgba(255,255,255,0.25)', fontWeight: 500, transition: 'color 0.25s' }}>Study</span>
@@ -791,7 +793,7 @@ function App() {
                 {isTTSEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
               </button>
               <button
-                onClick={() => setMode('study_mode')}
+                onClick={() => { setMode('study_mode'); setIsCareerDashboardOpen(false); setIsNotesDashboardOpen(false); }}
                 title="Study Sessions"
                 style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(240,180,60,0.5)', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
@@ -908,7 +910,7 @@ function App() {
                           <motion.button
                             whileHover={{ scale: 1.03, background: 'rgba(240,180,60,0.12)' }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => setMode('study_mode')}
+                            onClick={() => { setMode('study_mode'); setIsCareerDashboardOpen(false); setIsNotesDashboardOpen(false); }}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 6,
                               background: 'rgba(255,240,180,0.06)',
