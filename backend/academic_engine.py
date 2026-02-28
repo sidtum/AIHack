@@ -68,7 +68,8 @@ async def run_academic_flow(query: str, ws_broadcast, course_name: str = ""):
         try:
             from study_mode_manager import generate_anki_cards, find_osu_study_resources
             from rag import add_to_rag
-            import openai as _openai
+            from watsonx_client import wx_json as _wx_json
+            import json as _json
             import os as _os
 
             # Kick off RAG embedding in background (doesn't need to block cards)
@@ -76,10 +77,8 @@ async def run_academic_flow(query: str, ws_broadcast, course_name: str = ""):
 
             await ws_broadcast(json.dumps({"type": "thought", "text": "Generating flashcards and study plan in parallel..."}))
 
-            # Study plan helper (inline so we can await it in gather)
             async def _make_study_plan():
                 try:
-                    _client = _openai.AsyncOpenAI(api_key=_os.environ.get("OPENAI_API_KEY"))
                     _subject = material["course_name"]
                     _prompt = f"""You are a study coach. Based on the following lecture material for {_subject}, create a concise, actionable 5-step study plan.
 
@@ -88,14 +87,8 @@ Lecture material:
 
 Return ONLY a JSON object with key "steps" containing an array of exactly 5 steps, each with "step" (1-5) and "text" (one sentence, max 20 words, actionable):
 {{"steps": [{{"step": 1, "text": "..."}}, ...]}}"""
-                    _resp = await _client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[{"role": "user", "content": _prompt}],
-                        temperature=0.3,
-                        response_format={"type": "json_object"},
-                    )
-                    import json as _json
-                    _parsed = _json.loads(_resp.choices[0].message.content.strip())
+                    _raw = await _wx_json(_prompt)
+                    _parsed = _json.loads(_raw)
                     _steps = _parsed.get("steps", [])
                     if _steps:
                         await ws_broadcast(_json.dumps({
@@ -366,10 +359,9 @@ async def scrape_canvas(query: str, ws_broadcast, course_label: str = "CSE 3244"
             except Exception as e:
                 return ActionResult(error=f"download_canvas_file('{filename}') error: {str(e)}")
 
-        from browser_use import ChatOpenAI
+        from watsonx_langchain import WatsonxChat
 
-        model = os.environ.get("OPENAI_ACADEMIC_MODEL", "gpt-4o")
-        llm = ChatOpenAI(model=model, api_key=os.environ.get("OPENAI_API_KEY"))
+        llm = WatsonxChat(max_tokens=2048, temperature=0.2)
 
         task_prompt = f"""You are helping an OSU student prep for their {course_label} exam. Goal: "{query}"
 

@@ -5,8 +5,8 @@ import pdfplumber
 import io
 import os
 import asyncio
-from google import genai
-from google.genai import types as genai_types
+from watsonx_client import wx_chat, wx_json
+from orchestrate_client import orchestrate_chat, is_configured as orchestrate_configured
 from dotenv import load_dotenv
 from database import (
     init_db, get_user_profile, update_user_profile,
@@ -54,38 +54,8 @@ async def ws_send(message: str):
         except Exception:
             active_ws = None
 
-# ── Intent Classification ────────────────────────────────────────────────────
-
-async def classify_intent(text: str, pending_type: str | None = None) -> str:
-    """LLM intent classification using Gemini 3 Pro Preview."""
-    pending_ctx = f"There is a pending '{pending_type}' action awaiting the user's response." if pending_type else "No pending action."
-    prompt = f"""Classify this message into one of: career, academic, study_mode, confirm, decline, quiz, general.
-
-- career: wants to apply to jobs or internships
-- academic: wants help studying, exam prep, Canvas, course material
-- study_mode: wants to enter focus/study mode or block distractions
-- confirm: agreeing or approving (yes, yea, sure, ok, sounds good, go for it, etc.)
-- decline: disagreeing or cancelling (no, nah, skip, cancel, etc.)
-- quiz: wants to take a quiz or be tested
-- general: anything else
-
-Context: {pending_ctx}
-Message: "{text}"
-
-Reply with ONLY the single word."""
-    try:
-        import re as _re
-        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
-        response = await _client.aio.models.generate_content(
-            model="gemini-3-pro-preview",
-            contents=prompt,
-        )
-        intent = _re.sub(r'[^a-z_]', '', response.text.strip().lower().split()[0])
-        if intent in ("career", "academic", "study_mode", "confirm", "decline", "quiz"):
-            return intent
-        return "general"
-    except Exception:
-        return "general"
+# Conversation history per session (in-memory, single-user demo)
+_conversation_history: list[dict] = []
 
 # ── Pending action state (per-session, single-user demo) ─────────────────────
 pending_action = {"type": None, "data": None, "course": None}
@@ -145,8 +115,6 @@ async def upload_resume(file: UploadFile = File(...)):
     with open(pdf_path, "wb") as f:
         f.write(content)
 
-    _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
-
     prompt = f"""Extract the following fields from this resume text and return ONLY valid JSON with no markdown, no explanation.
 
 Fields to extract:
@@ -166,9 +134,8 @@ Resume text:
 Return only this JSON structure:
 {{"name": "", "email": "", "phone": null, "gpa": null, "location": "", "university": null, "graduation_year": null, "skills": [], "target_roles": []}}"""
 
-    response = await _client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-    raw = response.text.strip()
-    raw = raw.replace("```json", "").replace("```", "").strip()
+    response_text = await wx_chat(prompt)
+    raw = response_text.replace("```json", "").replace("```", "").strip()
 
     try:
         extracted_data = json.loads(raw)
@@ -355,7 +322,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if msg_type == "user_message":
                     text = msg.get("text", "")
-                    intent = await classify_intent(text, pending_action["type"])
+
+                    # Route through IBM watsonx Orchestrate (falls back to Granite if unconfigured)
+                    try:
+                        orc = await orchestrate_chat(text, _conversation_history)
+                        intent = orc.get("intent", "general")
+                        orc_reply = orc.get("reply", "")
+                    except Exception as _orc_err:
+                        print(f"[Orchestrate] routing error: {_orc_err}")
+                        intent = "general"
+                        orc_reply = "I can help with internship applications and exam prep. What would you like to do?"
+
+                    # Append to conversation history (keep last 10 turns)
+                    _conversation_history.append({"role": "user", "content": text})
+                    _conversation_history.append({"role": "assistant", "content": orc_reply})
+                    if len(_conversation_history) > 20:
+                        _conversation_history[:] = _conversation_history[-20:]
+
 
                     if intent == "career":
                         pending_action = {"type": "career", "data": text}
@@ -364,16 +347,15 @@ async def websocket_endpoint(websocket: WebSocket):
                             "1. Find a Summer 2026 SWE internship on SimplifyJobs.\n"
                             "2. Ask whether to tailor your resume for the specific role.\n"
                             "3. Generate tailored PDF if requested, then auto-apply via Chromium.\n\n"
-                            "Shall I proceed?"
+                            f"{orc_reply}\n\nShall I proceed?"
                         )
                         await ws_send(json.dumps({"type": "agent_response", "text": plan}))
 
                     elif intent == "academic":
                         pending_action = {"type": "academic", "data": text, "course": None}
-                        # Try to extract a course name from the query right away
                         await ws_send(json.dumps({
                             "type": "course_picker",
-                            "text": "Action Plan Generated:\n1. Open Canvas (carmen.osu.edu) — you'll log in manually.\n2. Navigate to the relevant course and scrape content.\n3. Generate key concepts and study material via GPT-4o.\n4. Enter Study Mode with concept cards and Q&A.\n5. Take a 5-question quiz to test your knowledge.",
+                            "text": f"{orc_reply}\n\nAction Plan:\n1. Open Canvas — log in manually.\n2. Navigate to your course and scrape content.\n3. Generate key concepts and study material via IBM Granite.\n4. Enter Study Mode with flashcards and Q&A.\n5. Take a 5-question quiz to test your knowledge.",
                         }))
 
                     elif intent == "confirm":
@@ -390,10 +372,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             pending_action = {"type": None, "data": None, "course": None}
                             await handle_academic_confirm(pending_action_copy)
                         else:
-                            await ws_send(json.dumps({
-                                "type": "agent_response",
-                                "text": "I'm not sure what to confirm. Try asking me to apply to jobs or help you study."
-                            }))
+                            await ws_send(json.dumps({"type": "agent_response", "text": orc_reply}))
 
                     elif intent == "decline":
                         if pending_action["type"] == "resume_choice":
@@ -401,19 +380,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             pending_action = {"type": None, "data": None}
                             asyncio.create_task(handle_resume_choice(pending_action_copy, use_tailored=False))
                         else:
-                            await ws_send(json.dumps({
-                                "type": "agent_response",
-                                "text": "Okay! Let me know if there's anything else I can help with."
-                            }))
+                            await ws_send(json.dumps({"type": "agent_response", "text": orc_reply}))
 
                     elif intent == "study_mode":
                         asyncio.create_task(handle_study_mode_activate(text))
 
                     else:
-                        await ws_send(json.dumps({
-                            "type": "agent_response",
-                            "text": "I can help with **Career Execution**, **Academic Study**, or **Study Mode**.\n\nTry saying:\n- \"Apply to SWE internships\"\n- \"I have an exam tomorrow\"\n- \"Enter study mode\""
-                        }))
+                        # General / unknown — use Orchestrate's conversational reply
+                        await ws_send(json.dumps({"type": "agent_response", "text": orc_reply}))
 
             except json.JSONDecodeError:
                 await ws_send(json.dumps({"type": "agent_response", "text": f"Error parsing: {data}"}))
@@ -629,7 +603,6 @@ async def handle_generate_cards(msg: dict):
 async def handle_generate_study_plan(content: str, subject: str):
     """Generate an AI study plan from lecture content and broadcast it."""
     try:
-        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
         subject_hint = f' for **{subject}**' if subject else ''
         prompt = f"""You are a study coach. Based on the following lecture material{subject_hint}, create a concise, actionable 5-step study plan the student should follow to prepare for their exam.
 
@@ -639,8 +612,7 @@ Lecture material:
 Return ONLY a JSON array of exactly 5 steps, each with "step" (1-5) and "text" (one sentence, max 20 words, actionable):
 [{{"step": 1, "text": "..."}}, ...]"""
 
-        response = await _client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        raw = response.text.strip()
+        raw = await wx_json(prompt)
         parsed = json.loads(raw)
         steps = []
         if isinstance(parsed, list):
@@ -668,15 +640,7 @@ async def handle_study_qa(question: str, context: str):
         # Fallback to the default scraped context if RAG has no data
         final_context = rag_context if rag_context.strip() else context[:6000]
         
-        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
-        response = await _client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=question,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=f"You are a helpful tutor. Use the following course material to answer the student's question. Be concise but thorough.\n\nCourse Material:\n{final_context}",
-            ),
-        )
-        answer = response.text
+        answer = await wx_chat(question, system=f"You are a helpful tutor. Use the following course material to answer the student's question. Be concise but thorough.\n\nCourse Material:\n{final_context}")
         await ws_send(json.dumps({
             "type": "study_qa_response",
             "text": answer,

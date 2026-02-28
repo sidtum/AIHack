@@ -1,6 +1,29 @@
-# Sayam
+# Sayam — Powered by IBM watsonx.ai
 
-Sayam is an AI-powered desktop assistant built for students at Ohio State University. It automates two of the most time-consuming parts of student life — applying to internships and studying for exams — while also providing a live lecture notes tool. Built on Electron, React, and FastAPI with agentic browser automation.
+Sayam is an AI-powered desktop assistant for Ohio State University students, built for the **IBM hackathon**. It automates internship applications and exam prep, using **IBM Granite 3.3 8B** (via IBM watsonx.ai) as the core AI throughout. Built on Electron, React, and FastAPI with agentic browser automation.
+
+> **IBM watsonx.ai** powers every AI feature: flashcard generation, quiz creation, study plans, Canvas agent reasoning, resume parsing, lecture Q&A, and IBM SkillsBuild course recommendations.
+
+---
+
+## IBM watsonx Integration
+
+All LLM calls route through IBM watsonx.ai — no OpenAI or Google dependencies for AI inference.
+
+| Feature | IBM Tool Used |
+|---|---|
+| Flashcard generation from lecture slides | watsonx.ai · Granite 3.3 8B |
+| Multiple-choice quiz generation | watsonx.ai · Granite 3.3 8B |
+| Post-quiz study plan & feedback | watsonx.ai · Granite 3.3 8B |
+| 5-step study plan from lecture content | watsonx.ai · Granite 3.3 8B |
+| Canvas browser agent (scraping + reasoning) | watsonx.ai · Granite 3.3 8B via LangChain |
+| Study Q&A with RAG retrieval | watsonx.ai · Granite 3.3 8B |
+| Resume parsing & profile extraction | watsonx.ai · Granite 3.3 8B |
+| IBM SkillsBuild course recommendations | watsonx.ai · Granite 3.3 8B |
+| Study resources panel | IBM SkillsBuild courses |
+
+### How watsonx.ai is called
+The backend includes a custom REST client (`watsonx_client.py`) that calls the `/ml/v1/text/generation` endpoint directly using `httpx` with IAM token caching. A LangChain wrapper (`watsonx_langchain.py`) adapts the same client for use with `browser-use` agents. Model: `ibm/granite-3-3-8b-instruct`.
 
 ---
 
@@ -9,61 +32,37 @@ Sayam is an AI-powered desktop assistant built for students at Ohio State Univer
 ### Career Engine
 Automates the full internship application pipeline from sourcing to submission.
 
-- **Job sourcing** — Scrapes the [SimplifyJobs/Summer2026-Internships](https://github.com/SimplifyJobs/Summer2026-Internships) GitHub repo for open roles, filtering for supported ATS platforms (Greenhouse, Lever, Ashby).
-- **Resume tailoring** — Uses GPT-4o to rephrase your existing experience bullets to match the target job's language. No fabrication — only better framing.
-- **Autonomous application** — The `browser-use` agent (Playwright + CDP) navigates to the application URL inside the embedded browser, uploads your resume, waits for ATS autofill, and intelligently fills remaining fields (EEO, demographics, custom questions) from your profile.
-- **Application tracker** — Every submitted application is saved to SQLite with company, role, date, and status. A **Career Dashboard** lets you update statuses (Applied → OA → Interview → Offer → Rejected) and open tailored resume PDFs directly.
+- **Job sourcing** — Scrapes [SimplifyJobs/Summer2026-Internships](https://github.com/SimplifyJobs/Summer2026-Internships) for open Greenhouse/Lever/Ashby roles.
+- **Resume tailoring** — Rephrases experience bullets to match the target job's language. No fabrication — only better framing.
+- **Autonomous application** — The `browser-use` agent (Playwright + CDP) navigates to the application URL, uploads your resume, waits for ATS autofill, and fills remaining fields from your profile.
+- **Application tracker** — Every submitted application is saved to SQLite. A Career Dashboard lets you update statuses and open tailored resume PDFs.
 
 ### Academic Engine
-Turns your Canvas course materials into an interactive study session.
+Turns your Canvas course materials into an interactive study session powered by IBM Granite.
 
-- **Canvas scraping** — Connects to your authenticated carmen.osu.edu session via CDP, navigates to your course's Files tab, and downloads lecture slides (PDF/PPTX).
-- **RAG pipeline** — Extracted text is chunked and stored in an in-memory LangChain vector store, enabling retrieval-augmented Q&A over your actual course content.
-- **Study panel** — Displays AI-generated key concepts for the course and lets you ask free-form questions answered using your lecture slides as context.
-- **5-question quiz** — GPT-4o generates a multiple-choice quiz from the course concepts. After submission, you receive a score, personalized feedback, and a 5-step study plan highlighting your weak areas.
-- **Anki flashcards** — Generates front/back flashcard pairs from RAG content or the current browser page for spaced repetition review.
+- **Canvas scraping** — Connects to your authenticated carmen.osu.edu session via CDP, navigates Files, and downloads lecture slides (PDF/PPTX). The Canvas navigation agent thinks with IBM Granite 3.3 8B.
+- **RAG pipeline** — Extracted text is chunked and stored in an in-memory LangChain vector store for retrieval-augmented Q&A over your actual course content.
+- **Study panel** — IBM Granite generates key concepts for the course and answers free-form questions using your lecture slides as context.
+- **5-question quiz** — IBM Granite generates a multiple-choice quiz. After submission: score, personalized feedback, and a 5-step study plan.
+- **Anki flashcards** — IBM Granite generates front/back flashcard pairs from RAG content or the current browser page.
 
 ### Study Mode
-A dedicated focus environment that activates when you need to eliminate distractions.
+A distraction-free focus environment.
 
-- **Site blocking** — Instructs Electron's main process to block 11 distraction domains (Reddit, YouTube, Twitter/X, Instagram, TikTok, Facebook, Twitch, Netflix, Hulu, Snapchat) via `will-navigate` intercept.
-- **OSU resource panel** — Surfaces curated links to Carmen, OSU Libraries study rooms, BuckeyeLink tutoring, Piazza, and subject-specific resources.
-- **Study session launcher** — Directly triggers the Academic Engine for a specific course without going through the chat flow.
-- **AI study plan** — Generates and displays a 5-step action plan from lecture content once flashcards are produced.
+- **Site blocking** — Blocks 11 distraction domains (Reddit, YouTube, Twitter/X, Instagram, TikTok, etc.) via Electron's `will-navigate` intercept.
+- **IBM SkillsBuild panel** — Surfaces IBM SkillsBuild courses relevant to your subject, plus IBM Granite-suggested additional resources.
+- **Study session launcher** — Triggers the Academic Engine directly, without going through the chat flow.
 
-### Lecture Notes (Notes Dashboard)
+### Lecture Notes
 Records live lectures and converts them into persistent, searchable notes.
 
-- **Live recording** — Uses the browser's `MediaRecorder` API to capture microphone audio directly in Electron (no file picker, no upload UI).
-- **Transcription** — Sends the recorded `audio/webm` blob to Deepgram's nova-2 model via direct REST (`httpx`) with the correct `Content-Type` header, returning a clean transcript.
-- **AI notes generation** — GPT-4o organizes the transcript into structured markdown: a 2–3 sentence summary, `##` key concept headings with bullet points, and a glossary of important terms.
-- **Session management** — Every recording is saved to SQLite as a session with title (auto-derived from the first words of the transcript), transcript, notes, and timestamp. Sessions persist across app restarts.
-- **Inline title editing** — Double-click any session title to rename it in place.
-- **Follow-up Q&A** — Ask questions about any session; GPT-4o answers using the notes as primary context and the raw transcript as a supplement.
+- **Live recording** — `MediaRecorder` API captures microphone audio in Electron.
+- **Transcription** — Deepgram nova-2 transcribes the audio via REST.
+- **Notes generation** — Structures the transcript into a summary, concept headings, and a glossary.
+- **Session management** — Every recording saved to SQLite. Inline title editing, follow-up Q&A.
 
 ### SMS Agent
-Allows Sayam to be used over text message via the Linq platform.
-
-- **Webhook integration** — An ngrok tunnel is started on backend launch, a Linq webhook is registered, and incoming messages are HMAC-verified before processing.
-- **Full state machine** — Supports multi-turn SMS conversations: intent detection, career/academic flows, quiz sessions (with answer tracking and scoring), and a STOP command to cancel running tasks.
-- **Bidirectional display** — SMS messages appear inline in the main chat alongside desktop messages, visually tagged with an SMS badge.
-
-### Chat Interface
-The primary way to interact with Sayam.
-
-- **Intent classification** — Keyword-based zero-latency router sends messages to the correct engine (career, academic, study mode, confirm/decline flows).
-- **Thought boxes** — Agent execution steps stream in real time and can be expanded/collapsed inline in the chat.
-- **Voice input** — Web Speech API (STT) fills the text input with spoken words; interim results update as you speak.
-- **Text-to-speech** — Toggle TTS to have agent responses read aloud.
-- **Stop button** — Cancels the currently running `asyncio.Task` mid-flight.
-- **Collapsible sidebar** — The chat panel can be collapsed to a 48px icon strip to give more space to the browser.
-
-### Embedded Browser
-A native `WebContentsView` (Electron) renders full websites inside the app.
-
-- The React overlay tracks the browser pane's exact bounds via `ResizeObserver`, keeping the native view perfectly synced.
-- Quick-access toolbar buttons: **Carmen** (OSU Canvas), **Career** (opens Career Dashboard), **Notes** (opens Notes Dashboard).
-- Standard browser controls: back, forward, reload/stop, URL bar with autocomplete.
+Full Sayam functionality over SMS via the Linq platform — multi-turn conversations, quiz sessions, intent detection, and a stop command.
 
 ---
 
@@ -90,10 +89,13 @@ A native `WebContentsView` (Electron) renders full websites inside the app.
 │  ┌─────────────────────────────────────────────┐ │
 │  │         FastAPI Backend (uvicorn)            │ │
 │  │  main.py · database.py (SQLite)              │ │
+│  │  watsonx_client.py  ← IBM watsonx.ai REST   │ │
+│  │  watsonx_langchain.py ← LangChain wrapper   │ │
 │  │  career_engine  → browser-use + Playwright   │ │
 │  │  academic_engine → Canvas scraper + RAG      │ │
-│  │  notes_engine   → Deepgram + GPT-4o          │ │
-│  │  study_mode_manager → Anki cards + blocking  │ │
+│  │  notes_engine   → Deepgram                   │ │
+│  │  study_mode_manager → Anki + IBM SkillsBuild │ │
+│  │  quiz_generator → flashcards + quizzes       │ │
 │  │  sms_handler    → Linq webhook + ngrok        │ │
 │  └─────────────────────────────────────────────┘ │
 │         │ CDP localhost:9222                       │
@@ -104,9 +106,9 @@ A native `WebContentsView` (Electron) renders full websites inside the app.
 
 **Frontend:** Electron · React 18 · TypeScript · Vite · Framer Motion · Lucide React
 
-**Backend:** Python 3.13 · FastAPI · uvicorn · SQLite · LangChain (RAG)
+**Backend:** Python 3.14 · FastAPI · uvicorn · SQLite · LangChain (RAG)
 
-**AI:** OpenAI GPT-4o (notes, academics, tailoring) · GPT-4o-mini (parsing, study plans) · o3 (job application form-filling) · Deepgram nova-2 (transcription)
+**AI:** IBM watsonx.ai · IBM Granite 3.3 8B · Deepgram nova-2 (transcription)
 
 **Automation:** browser-use 0.11.11 · Playwright · CDP
 
@@ -117,42 +119,33 @@ A native `WebContentsView` (Electron) renders full websites inside the app.
 ## Project Structure
 
 ```
-IBMHack/
+AIHack/
 ├── README.md
 ├── frontend/
-│   ├── main.js                       # Electron main process, window management,
-│   │                                 # CDP setup, site blocking, IPC handlers
+│   ├── electron/main.js              # Electron main process, CDP, site blocking, IPC
 │   └── src/
 │       ├── App.tsx                   # Root component, WebSocket, mode state machine
-│       ├── components/
-│       │   ├── AgentBrowser.tsx      # Toolbar + WebContentsView bounds tracking
-│       │   ├── CareerDashboard.tsx   # Job application tracker overlay
-│       │   ├── NotesDashboard.tsx    # Lecture notes overlay (record → transcribe → notes)
-│       │   ├── StudyModePage.tsx     # Focus mode full-page view
-│       │   ├── StudyPanel.tsx        # Concepts list + RAG Q&A
-│       │   ├── QuizView.tsx          # Multiple-choice quiz UI
-│       │   ├── StudyResults.tsx      # Score + feedback + study plan
-│       │   ├── FlashcardView.tsx     # Anki-style flip cards
-│       │   ├── ProfileDrawer.tsx     # Resume upload + EEO fields sidebar
-│       │   ├── OnboardingWizard.tsx  # First-run profile setup
-│       │   └── SmsBadge.tsx          # "SMS" source tag on messages
-│       └── hooks/
-│           ├── useSpeechRecognition.ts   # Web Speech API STT
-│           └── useTTS.ts                 # Browser TTS
+│       └── components/
+│           ├── AgentBrowser.tsx      # Toolbar + WebContentsView bounds tracking
+│           ├── CareerDashboard.tsx   # Job application tracker overlay
+│           ├── NotesDashboard.tsx    # Lecture notes (record → transcribe → notes)
+│           ├── StudyModePage.tsx     # Focus mode with IBM SkillsBuild resources
+│           ├── StudyPanel.tsx        # Concepts + RAG Q&A
+│           ├── QuizView.tsx          # Multiple-choice quiz UI
+│           └── ProfileDrawer.tsx     # Resume upload + EEO fields
 └── backend/
     ├── main.py                   # FastAPI app, WebSocket handler, intent router
-    ├── database.py               # SQLite schema + all DB query functions
-    ├── career_engine.py          # SimplifyJobs scraping + browser-use application flow
-    ├── resume_tailor.py          # GPT-4o resume tailoring → PDF generation
+    ├── watsonx_client.py         # IBM watsonx.ai REST client (IAM auth + generation)
+    ├── watsonx_langchain.py      # LangChain ChatModel wrapper for browser-use agents
+    ├── database.py               # SQLite schema + query functions
+    ├── career_engine.py          # SimplifyJobs scraping + application flow
+    ├── resume_tailor.py          # Resume tailoring → PDF generation
     ├── academic_engine.py        # Canvas navigation + PDF scraping + RAG ingestion
-    ├── notes_engine.py           # Deepgram transcription (httpx) + GPT-4o notes + Q&A
-    ├── study_mode_manager.py     # Site blocking state, OSU resources, Anki card generation
-    ├── quiz_generator.py         # GPT-4o quiz + study plan generation
-    ├── rag.py                    # LangChain in-memory vector store for course PDFs
-    ├── sms_handler.py            # Linq webhook router + SMS state machine
-    ├── ngrok_manager.py          # ngrok tunnel startup + webhook registration
-    ├── scraper.py                # Canvas page scraping utilities
-    ├── browser_agent.py          # browser-use Agent wrapper
+    ├── notes_engine.py           # Deepgram transcription + notes + Q&A
+    ├── study_mode_manager.py     # Site blocking, IBM SkillsBuild resources, Anki cards
+    ├── quiz_generator.py         # IBM Granite quiz + study plan generation
+    ├── rag.py                    # LangChain in-memory vector store
+    ├── sms_handler.py            # Linq webhook + SMS state machine
     └── requirements.txt
 ```
 
@@ -163,24 +156,29 @@ IBMHack/
 ### Prerequisites
 - Node.js 18+
 - Python 3.11+
+- IBM Cloud account with watsonx.ai access ([cloud.ibm.com](https://cloud.ibm.com))
 
 ### 1. Backend
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 Create `backend/.env`:
 
 ```env
-OPENAI_API_KEY=sk-...
-OPENAI_ACADEMIC_MODEL=o3
-DEEPGRAM_API_KEY=...
-NGROK_AUTH_TOKEN=...
-LINQ_API_TOKEN=...             # optional — only needed for SMS feature
+# IBM watsonx.ai — required for all AI features
+IBM_WATSONX_API_KEY=...         # IAM API key from cloud.ibm.com
+IBM_WATSONX_PROJECT_ID=...      # From dataplatform.cloud.ibm.com > Manage > General
+IBM_WATSONX_URL=https://us-south.ml.cloud.ibm.com
+
+# Other services
+DEEPGRAM_API_KEY=...            # For lecture transcription
+NGROK_AUTH_TOKEN=...            # For SMS webhook tunnel
+LINQ_API_TOKEN=...              # Optional — SMS feature only
 ```
 
 Start the server:
@@ -202,35 +200,25 @@ npm run dev        # starts Vite dev server + Electron
 ## Usage
 
 ### First Run
-On first launch, an onboarding wizard walks you through uploading your resume (PDF). The backend parses it with GPT-4o and populates your profile (name, email, GPA, skills, target roles). You must also complete the EEO fields before job applications can be submitted.
-
-### Applying to Internships
-1. Type *"Apply to SWE internships"* in the chat.
-2. Sayam proposes an action plan — confirm with *"yes"* to proceed.
-3. The backend scrapes SimplifyJobs, finds an open Greenhouse/Lever role, and asks whether to tailor your resume.
-4. Confirm or decline tailoring, then watch the `browser-use` agent fill the form autonomously in the embedded browser.
-5. Track the application in **Career Dashboard** (toolbar → CAREER).
+Upload your resume PDF in the onboarding wizard. IBM Granite parses it and populates your profile (name, email, GPA, skills, target roles).
 
 ### Studying for an Exam
-1. Type *"I have an exam for CSE 3244"* — Sayam shows a course picker card.
-2. Enter your course (e.g. `CSE 3244`), confirm to proceed.
-3. Log into Carmen in the embedded browser when prompted.
-4. The agent scrapes your lecture slides, builds a RAG index, and opens a Study Panel with key concepts.
-5. Click **Start Quiz** for a 5-question exam, then review your personalized study plan.
+1. Type *"I have an exam for CSE 3244"* — Sayam shows a course picker.
+2. Log into Carmen in the embedded browser.
+3. IBM Granite (via the Canvas browser agent) scrapes your lecture slides, builds a RAG index, and opens a Study Panel with key concepts.
+4. Click **Start Quiz** — IBM Granite generates a 5-question exam. After submission: score, feedback, and a personalized 5-step study plan.
+
+### Applying to Internships
+1. Type *"Apply to SWE internships"* — confirm the action plan.
+2. The browser-use agent (powered by IBM Granite) fills the application form autonomously.
+3. Track the application in the Career Dashboard.
 
 ### Study Mode (Focus)
-Toggle the **Study** switch in the header (or type *"enter study mode"*) to block distractions and surface OSU resources. Use **Start a Study Session** inside Study Mode to launch the full academic flow without the chat.
+Toggle the **Study** switch to block distractions and surface IBM SkillsBuild courses relevant to your current subject.
 
-### Recording Lecture Notes
-1. Click **NOTES** in the browser toolbar.
-2. Click **Record Lecture** — grant microphone access if prompted.
-3. Speak (lecture, notes, anything). Click **Stop Recording**.
-4. "Processing audio..." appears while Deepgram transcribes and GPT-4o generates notes.
-5. The new session appears in the list. Click it to read the notes, view the raw transcript, or ask follow-up questions.
-6. Double-click the session title to rename it.
-
-### SMS (via Linq)
-If `LINQ_API_TOKEN` is set, Sayam registers a webhook on startup. Text your Linq number with the same phrases you'd type in the chat. Responses and the student's incoming messages appear in the desktop chat as well, tagged with an SMS badge.
+### Recording Lectures
+1. Click **NOTES** → **Record Lecture**.
+2. Stop recording — Deepgram transcribes, then notes are structured and saved.
 
 ---
 
@@ -240,34 +228,12 @@ SQLite file: `backend/sayam.db`
 
 | Table | Description |
 |---|---|
-| `users` | Single-row profile: name, email, resume text, skills, EEO fields, etc. |
-| `job_applications` | Submitted applications: company, role, URL, status, tailored resume path |
-| `lecture_sessions` | Recorded lectures: title, transcript, notes, created\_at (no audio stored) |
-| `study_sessions` | Canvas study sessions: course, concepts, questions, quiz score |
-| `sms_sessions` | Per-chat-ID SMS state machine state |
+| `users` | Profile: name, email, resume, skills, EEO fields |
+| `job_applications` | Applications: company, role, URL, status, tailored resume path |
+| `lecture_sessions` | Recordings: title, transcript, notes, timestamp |
+| `study_sessions` | Canvas sessions: course, concepts, questions, quiz score |
+| `sms_sessions` | Per-chat SMS state machine state |
 
 ---
 
-## API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `WS` | `/ws` | Primary real-time channel (chat, thoughts, status, navigation) |
-| `GET` | `/profile` | Fetch user profile |
-| `POST` | `/update-profile` | Update profile fields |
-| `GET` | `/profile/status` | Profile completeness check |
-| `GET` | `/linq-config` | Fetch the configured Linq phone number |
-| `POST` | `/upload-resume` | Parse resume PDF → update profile |
-| `POST` | `/upload-transcript` | Upload academic transcript PDF |
-| `GET` | `/job-applications` | List all tracked applications |
-| `PATCH` | `/job-applications/{id}/status` | Update application status |
-| `POST` | `/process-lecture-audio` | Transcribe audio + generate notes → new session |
-| `GET` | `/lecture-sessions` | List all lecture sessions (id, title, date) |
-| `GET` | `/lecture-sessions/{id}` | Full session with notes + transcript |
-| `POST` | `/lecture-sessions/{id}/qa` | Ask a follow-up question about a session |
-| `PATCH` | `/lecture-sessions/{id}/title` | Rename a session |
-| `POST` | `/sms/webhook` | Linq incoming message webhook |
-
----
-
-*Built to streamline student productivity by intelligently bridging native browser state with autonomous AI execution.*
+*Built for the IBM hackathon. Powered by IBM watsonx.ai and IBM Granite 3.3 8B.*

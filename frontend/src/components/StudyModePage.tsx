@@ -807,7 +807,7 @@ export function StudyModePage({
                     <section>
                         <SectionHeader
                             icon={<Library size={14} style={{ color: C.accent }} />}
-                            label="OSU Study Resources"
+                            label="IBM SkillsBuild Courses"
                         />
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 9 }}>
                             {displayResources.map((r, i) => (

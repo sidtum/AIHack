@@ -1,6 +1,6 @@
 import json
 import os
-import openai
+from watsonx_client import wx_json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,32 +14,32 @@ DISTRACTION_DOMAINS = [
     "netflix.com", "hulu.com", "snapchat.com",
 ]
 
-# ── OSU resource templates (subject-agnostic fallbacks + dynamic ones) ───────
-OSU_BASE_RESOURCES = [
+# ── IBM SkillsBuild courses (IBM hackathon showcase + always-relevant resources)
+IBM_SKILLSBUILD_BASE = [
     {
-        "title": "Carmen (Canvas) — Course Forums & Announcements",
-        "url": "https://carmen.osu.edu",
-        "tag": "Canvas",
+        "title": "IBM SkillsBuild — Explore All Courses",
+        "url": "https://skillsbuild.org/students/course-catalog",
+        "tag": "IBM SkillsBuild",
     },
     {
-        "title": "OSU Libraries — Study Rooms & Resources",
-        "url": "https://library.osu.edu/study-spaces",
-        "tag": "Study Rooms",
+        "title": "IBM SkillsBuild — AI Fundamentals",
+        "url": "https://skillsbuild.org/students/digital-credentials/artificial-intelligence-fundamentals",
+        "tag": "AI",
     },
     {
-        "title": "BuckeyeLink — Academic Support & Tutoring",
-        "url": "https://buckeyelink.osu.edu",
-        "tag": "Tutoring",
+        "title": "IBM SkillsBuild — Data Science Foundations",
+        "url": "https://skillsbuild.org/students/digital-credentials/data-science-foundations",
+        "tag": "Data Science",
     },
     {
-        "title": "OSU CSE Discord (unofficial student server)",
-        "url": "https://discord.gg/osu-cse",
-        "tag": "Discord",
+        "title": "IBM SkillsBuild — Cybersecurity Fundamentals",
+        "url": "https://skillsbuild.org/students/digital-credentials/cybersecurity-fundamentals",
+        "tag": "Cybersecurity",
     },
     {
-        "title": "Piazza — Q&A for OSU Courses",
-        "url": "https://piazza.com",
-        "tag": "Q&A",
+        "title": "IBM SkillsBuild — Cloud Computing Fundamentals",
+        "url": "https://skillsbuild.org/students/digital-credentials/cloud-computing-fundamentals",
+        "tag": "Cloud",
     },
 ]
 
@@ -61,10 +61,7 @@ async def generate_anki_cards(page_text: str, subject: str = "") -> list[dict]:
     Each card: {"front": "question/term", "back": "answer/definition"}
     """
     try:
-        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
         subject_hint = f' The subject area appears to be: "{subject}".' if subject else ""
-
         prompt = f"""You are a study assistant helping a student create flashcards.{subject_hint}
 
 Based on the following web page content, generate 5-8 Anki-style flashcards that cover the most important concepts, definitions, or facts.
@@ -84,14 +81,7 @@ Rules:
 - focus on key concepts, not trivia
 - generate 5-8 cards total"""
 
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.25,
-            response_format={"type": "json_object"},
-        )
-
-        raw = response.choices[0].message.content.strip()
+        raw = await wx_json(prompt, max_tokens=900)
         # GPT json_object mode wraps in an object — handle both array and object
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -124,31 +114,24 @@ async def find_osu_study_resources(subject: str) -> list[dict]:
     """
     Return a mix of static OSU resources plus AI-generated subject-specific ones.
     """
-    resources = list(OSU_BASE_RESOURCES)
+    resources = list(IBM_SKILLSBUILD_BASE)
 
     if not subject.strip():
         return resources
 
     try:
-        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
         prompt = f"""An OSU student is studying: "{subject}".
 
-Suggest 2-3 additional online resources (could be OSU specific, or general academic resources like Khan Academy, MIT OpenCourseWare, etc.) that would be most helpful for this subject.
+Suggest 2-3 relevant IBM SkillsBuild courses from skillsbuild.org that match this subject.
+Only suggest real courses that exist on IBM SkillsBuild — do not invent URLs.
+All URLs must start with https://skillsbuild.org/.
 
 Return ONLY a valid JSON array:
-[{{"title": "Resource Name", "url": "https://...", "tag": "Short tag"}}]
+[{{"title": "IBM SkillsBuild — Course Name", "url": "https://skillsbuild.org/...", "tag": "Short tag"}}]
 
-Keep URLs real and accurate. Prefer free resources."""
+If no IBM SkillsBuild course is a good match, return an empty array []"""
 
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            response_format={"type": "json_object"},
-        )
-
-        raw = response.choices[0].message.content.strip()
+        raw = await wx_json(prompt, max_tokens=400)
         parsed = json.loads(raw)
         extras = []
         if isinstance(parsed, list):
@@ -161,9 +144,13 @@ Keep URLs real and accurate. Prefer free resources."""
 
         for r in extras:
             if isinstance(r, dict) and "title" in r and "url" in r:
-                resources.append(r)
+                url = r.get("url", "")
+                # Only add if URL is a SkillsBuild link (guards against hallucination)
+                if "skillsbuild.org" in url:
+                    if not any(existing["url"] == url for existing in resources):
+                        resources.append(r)
 
     except Exception as e:
-        print(f"OSU resources generation error: {e}")
+        print(f"IBM SkillsBuild resources generation error: {e}")
 
     return resources
