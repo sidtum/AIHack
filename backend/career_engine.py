@@ -27,6 +27,16 @@ SUPPORTED_ATS = {
 
 SIMPLIFY_README = "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/README.md"
 
+# ── Demo override ─────────────────────────────────────────────────────────────
+# Set to a job dict to skip scraping and always apply to this job.
+# Set to None to re-enable live scraping.
+DEMO_JOB: dict | None = {
+    "company": "Sigma Computing",
+    "role": "Software Engineering Intern",
+    "apply_url": "https://job-boards.greenhouse.io/sigmacomputing/jobs/7639837003?utm_source=Simplify&ref=Simplify",
+    "ats": "greenhouse",
+}
+
 
 # ── Phase 1: Instant Python HTTP Scrape ──────────────────────────────────────
 
@@ -115,54 +125,53 @@ def _try_extract_job(row_lines: list[str]) -> dict | None:
 
 # ── Phase 2: ATS Form Filling (browser-use) ─────────────────────────────────
 
-def _build_task(job: dict, profile: dict, resume_path: str | None, transcript_path: str | None, nav_note: str = "Navigate to the URL above.") -> str:
+def _build_task(job: dict, profile: dict, resume_path: str | None, transcript_path: str | None) -> str:
     name = profile.get("name", "N/A")
     first_name = name.split()[0] if name and name != "N/A" else "N/A"
     last_name = " ".join(name.split()[1:]) if name and len(name.split()) > 1 else "N/A"
-    university = profile.get("university", "N/A")
-    grad_year = profile.get("graduation_year", "N/A")
-    gpa = profile.get("gpa", "N/A")
-    location = profile.get("location", "N/A")
-    phone = profile.get("phone", "N/A")
 
-    resume_line = f"Resume file to upload: {resume_path}" if resume_path else "No resume file available."
-    transcript_line = f"If the form asks for a transcript, upload: {transcript_path}" if transcript_path else ""
-    return f"""You are filling out a job application. Complete the form and submit.
+    resume_line = f"Resume: {resume_path}" if resume_path else "No resume file available."
+    transcript_line = f"Transcript (upload only if the form explicitly asks for it): {transcript_path}" if transcript_path else ""
 
-Application URL: {job['apply_url']}
+    return f"""Fill out and submit this job application completely.
+
+URL: {job['apply_url']}
 Company: {job['company']} | Role: {job['role']}
+The browser is ALREADY on the application page.
 
----
-PROFILE — only use these values, do not invent anything:
-- Full name: {name}
-- Email: type exactly "email_address" (auto-replaced)
-- Phone: type exactly "phone_number" (auto-replaced)
-- Location: {location}
-- University: {university} | Grad year: {grad_year} | GPA: {gpa}
-- Gender: {profile.get('gender') or 'prefer not to say'}
-- Race/Ethnicity: {profile.get('race_ethnicity') or 'prefer not to say'}
-- Veteran status: {profile.get('veteran_status') or 'I am not a veteran'}
-- Disability: {profile.get('disability_status') or 'No'}
-- Work authorization: {profile.get('work_authorization') or 'Authorized to work'}
+=== CANDIDATE INFO ===
+First name: {first_name}
+Last name: {last_name}
+Email: type exactly the word   email_address   (auto-substituted)
+Phone country: United States +1  ← fill this BEFORE the phone number field
+Phone: type exactly the word   phone_number    (auto-substituted)
+Location: {profile.get('location', 'N/A')}
+University: {profile.get('university', 'N/A')}  ← type "Ohio State" to search
+Degree: Bachelor's | Grad: May {profile.get('graduation_year', 'N/A')} | GPA: {profile.get('gpa', 'N/A')}
+Work authorization: {profile.get('work_authorization') or 'US Citizen'}
+H-1B sponsorship needed: No
+Pronouns: He/Him  ← type "He" to search (the option is "He/ Him" with a space)
+Gender: {profile.get('gender') or 'Male'}
+Hispanic/Latino: No
+Race: {profile.get('race_ethnicity') or 'Asian'}
+Veteran: I am not a protected veteran
+Disability: No disability
 {resume_line}
 {transcript_line}
----
 
-STRATEGIC GUIDANCE:
-1. START WITH RESUME: Always begin by uploading the resume to the CV/Resume input field. Wait 3 seconds afterward because the ATS will attempt to autofill the rest of the form.
-2. HANDLE AUTOFILLS SMARTLY: Many text fields (name, email, phone, location, dates) will be autofilled by the resume. Check their values before typing. If a field is already filled correctly, skip it. If you must type, use clear=True to avoid appending to existing text. Note: sensitive fields may appear visually masked — trust the DOM state, do not refill them repeatedly.
-3. HUGE DROPDOWNS: If a field like "University" is a combobox with thousands of options, DO NOT list all options. Click the field, type part of the name (e.g., "Ohio State"), wait for suggestions, and click the best matching suggestion.
-4. EEO / STANDARD DROPDOWNS: For demographic questions, the exact text might not match your profile perfectly. Inspect the options available in the DOM, then select the closest logical match.
-5. OPTIONAL FIELDS: Skip optional fields if you don't have the data. Never invent data.
-6. NAVIGATION: The browser is ALREADY on the correct page. Do not navigate to the application URL yourself.
-
-Execute the application completion using these principles and submit when finished."""
+=== RULES ===
+1. Upload resume FIRST, wait 4 seconds for autofill, then only fill missing or wrong fields.
+2. After typing "phone_number" or "email_address" the field looks blank — that is correct, DO NOT retype.
+3. For every dropdown/combobox: click the field, type a short prefix, wait for suggestions to appear,
+   then click the matching option. Never submit before all required fields are complete.
+4. For graduation date: select the end month dropdown and click the suggestion BEFORE typing the end year.
+"""
 
 
 async def apply_to_job(job: dict, profile: dict, ws_broadcast, tailored_resume_path: str | None = None) -> str | None:
     """Browser-use agent fills the ATS form. Returns None on success, error string on failure."""
     try:
-        from browser_use import Agent, Browser, ChatOpenAI, Tools, ActionResult, BrowserSession
+        from browser_use import Agent, Browser, ChatOpenAI, ChatGoogle
 
         sensitive_data = {}
         if profile.get("email"):
@@ -236,23 +245,20 @@ async def apply_to_job(job: dict, profile: dict, ws_broadcast, tailored_resume_p
 
         browser = Browser(cdp_url=cdp_ws_url, no_viewport=True)
 
-        tools = Tools()
-        nav_note = "The browser is ALREADY loaded on the application page. Do NOT navigate — skip Step 1 and start directly at Step 2 (Upload resume)."
+        task = _build_task(job, profile, resume_path, transcript_path)
 
-        @tools.action("Navigate to URL and sync with frontend browser")
-        async def navigate_to(url: str, browser_session: BrowserSession) -> ActionResult:
-            page = await browser_session.get_current_page()
-            await page.goto(url)
-            try:
-                await ws_broadcast(json.dumps({"type": "browser_navigate", "url": url}))
-            except Exception:
-                pass
-            return ActionResult(extracted_content=f"Navigated to {url}")
-
-        task = _build_task(job, profile, resume_path, transcript_path, nav_note=nav_note)
-
-        model = os.environ.get("OPENAI_JOB_AGENT_MODEL", "o3")
-        llm = ChatOpenAI(model=model, api_key=os.environ.get("OPENAI_API_KEY"))
+        # Model selection — defaults to Gemini 3.1 Pro Preview.
+        # Override via JOB_AGENT_MODEL env var.
+        # Gemini models require GOOGLE_API_KEY; OpenAI models require OPENAI_API_KEY.
+        model_name = os.environ.get("JOB_AGENT_MODEL", "gemini-3.1-pro-preview")
+        if "gemini" in model_name.lower():
+            llm = ChatGoogle(
+                model=model_name,
+                api_key=os.environ.get("GOOGLE_API_KEY"),
+            )
+        else:
+            llm = ChatOpenAI(model=model_name, api_key=os.environ.get("OPENAI_API_KEY"))
+        await ws_broadcast(json.dumps({"type": "thought", "text": f"Using {model_name}"}))
 
         # Broadcast each agent step's goal as a thought for live UI updates
         async def on_step(browser_state, agent_output, step_number: int) -> None:
@@ -266,20 +272,26 @@ async def apply_to_job(job: dict, profile: dict, ws_broadcast, tailored_resume_p
             except Exception:
                 pass
 
+        initial_actions = [
+            {"wait": {"seconds": 1}},
+            {"evaluate": {"code": "document.getElementById('application-form')?.scrollIntoView({behavior:'instant',block:'start'})"}},
+        ]
+
         agent = Agent(
             task=task,
             llm=llm,
             browser=browser,
-            tools=tools,
             sensitive_data=sensitive_data if sensitive_data else None,
             available_file_paths=file_paths if file_paths else None,
-            max_actions_per_step=6,
-            use_vision="auto",
+            max_actions_per_step=10,
+            use_vision=True,
             register_new_step_callback=on_step,
-            directly_open_url=False,  # WebContentsView is already on the job page
+            directly_open_url=False,
+            initial_actions=initial_actions,
+            loop_detection_enabled=False,
         )
 
-        result = await agent.run(max_steps=40)
+        result = await agent.run(max_steps=60)
 
         # Send agent's detailed result as a thought (visible in collapsed accordion)
         if result:
@@ -311,28 +323,31 @@ async def run_career_flow(
 ):
     try:
         await ws_broadcast(json.dumps({"type": "status", "text": "Executing"}))
+        # Open a single agent bubble — all intermediates go in as thoughts
+        await ws_broadcast(json.dumps({
+            "type": "thought",
+            "text": "Scanning SimplifyJobs for a Greenhouse or Lever internship..."
+        }))
 
+        # Phase 1: use provided job, demo override, or live scrape
         if job is None:
-            # Phase 1: instant Python scrape (no browser, no LLM)
+            if DEMO_JOB:
+                job = DEMO_JOB
+            else:
+                job = await asyncio.get_event_loop().run_in_executor(None, scrape_first_supported_job)
+
+        if not job:
             await ws_broadcast(json.dumps({
-                "type": "thought",
-                "text": "Scanning SimplifyJobs for a Greenhouse or Lever internship..."
+                "type": "agent_response",
+                "text": "No open Greenhouse or Lever internship found on SimplifyJobs right now. Try again later."
             }))
-            job = await asyncio.get_event_loop().run_in_executor(None, scrape_first_supported_job)
+            await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
+            return
 
-            if not job:
-                await ws_broadcast(json.dumps({
-                    "type": "agent_response",
-                    "text": "No open Greenhouse or Lever internship found on SimplifyJobs right now. Try again later."
-                }))
-                await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
-                return
-
-            await ws_broadcast(json.dumps({
-                "type": "thought",
-                "text": f"Found: {job['company']} — {job['role']} ({job['ats'].title()})"
-            }))
-
+        await ws_broadcast(json.dumps({
+            "type": "thought",
+            "text": f"Found: {job['company']} — {job['role']} ({job['ats'].title()})"
+        }))
         await ws_broadcast(json.dumps({
             "type": "thought",
             "text": f"Starting {job['ats'].title()} application for {job['company']}..."
