@@ -7,8 +7,8 @@ Audio bytes are processed in memory — nothing is written to disk.
 """
 import os
 import httpx
-import openai
-
+from google import genai
+from google.genai import types
 
 async def transcribe_audio(audio_bytes: bytes, mimetype: str) -> str:
     """
@@ -45,32 +45,32 @@ async def transcribe_audio(audio_bytes: bytes, mimetype: str) -> str:
 
 async def generate_notes(transcript: str, title: str) -> str:
     """
-    Ask GPT-4o to generate clean, organized markdown notes from a transcript.
+    Ask Gemini to generate clean, organized markdown notes from a transcript.
     Returns a markdown string.
     """
-    client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
 
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a lecture note-taking assistant. Given a lecture transcript, produce clean organized notes in markdown with:\n"
-                    "1. A short **Summary** paragraph (2–3 sentences).\n"
-                    "2. **Key Concepts** — bold headings (##) for each concept with bullet points underneath.\n"
-                    "3. **Important Terms/Definitions** — a brief glossary at the end if applicable.\n"
-                    "Be concise. Use markdown headings, bold, and bullet points."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"Lecture title: {title}\n\nTranscript:\n{transcript[:8000]}",
-            },
-        ],
-        temperature=0.3,
+    prompt = (
+        f"Lecture title: {title}\n\nTranscript:\n{transcript[:8000]}"
     )
-    return response.choices[0].message.content.strip()
+
+    system_instruction = (
+        "You are a lecture note-taking assistant. Given a lecture transcript, produce clean organized notes in markdown with:\n"
+        "1. A short **Summary** paragraph (2–3 sentences).\n"
+        "2. **Key Concepts** — bold headings (##) for each concept with bullet points underneath.\n"
+        "3. **Important Terms/Definitions** — a brief glossary at the end if applicable.\n"
+        "Be concise. Use markdown headings, bold, and bullet points."
+    )
+
+    response = await client.aio.models.generate_content(
+        model="gemini-3-pro-preview",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.3,
+        )
+    )
+    return response.text.strip() if response.text else ""
 
 
 async def answer_question(question: str, notes: str, transcript: str) -> str:
@@ -78,25 +78,25 @@ async def answer_question(question: str, notes: str, transcript: str) -> str:
     Answer a follow-up question using the session's notes as primary context.
     Falls back to the raw transcript if notes are empty.
     """
-    client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
 
     context = notes if notes and notes.strip() else transcript[:6000]
     supplement = transcript[:3000] if notes and notes.strip() else ""
 
-    system_content = (
+    system_instruction = (
         "You are a helpful tutor. Answer the student's question using the lecture notes below. "
         "Be clear, concise, and use examples from the lecture when relevant.\n\n"
         f"## Lecture Notes:\n{context}"
     )
     if supplement:
-        system_content += f"\n\n## Raw Transcript (supplemental):\n{supplement}"
+        system_instruction += f"\n\n## Raw Transcript (supplemental):\n{supplement}"
 
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": question},
-        ],
-        temperature=0.4,
+    response = await client.aio.models.generate_content(
+        model="gemini-3-pro-preview",
+        contents=question,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.4,
+        )
     )
-    return response.choices[0].message.content.strip()
+    return response.text.strip() if response.text else ""

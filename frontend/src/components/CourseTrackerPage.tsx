@@ -142,14 +142,14 @@ function CourseRow({ course, done, onToggle }: { course: Course; done: boolean; 
         <motion.div
             layout
             onClick={onToggle}
-            whileHover={{ background: done ? 'rgba(80,200,130,0.07)' : 'rgba(255,255,255,0.03)' }}
+            whileHover={{ background: done ? 'rgba(255,100,100,0.07)' : 'rgba(255,255,255,0.03)' }}
             style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '7px 10px', borderRadius: 10, cursor: 'pointer',
-                background: done ? 'rgba(80,200,130,0.05)' : 'transparent',
+                background: done ? 'rgba(255,100,100,0.05)' : 'transparent',
                 border: `1px solid ${course.isElective
-                    ? done ? 'rgba(80,200,130,0.18)' : 'rgba(255,255,255,0.05)'
-                    : done ? 'rgba(80,200,130,0.22)' : 'rgba(255,255,255,0.07)'}`,
+                    ? done ? 'rgba(255,100,100,0.18)' : 'rgba(255,255,255,0.05)'
+                    : done ? 'rgba(255,100,100,0.22)' : 'rgba(255,255,255,0.07)'}`,
                 borderStyle: course.isElective ? 'dashed' : 'solid',
                 transition: 'all 0.15s',
                 marginBottom: 5,
@@ -158,21 +158,21 @@ function CourseRow({ course, done, onToggle }: { course: Course; done: boolean; 
             {/* Checkbox */}
             <div style={{
                 width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-                border: `1.5px solid ${done ? '#6ee7a0' : 'rgba(255,255,255,0.18)'}`,
-                background: done ? 'rgba(80,200,130,0.2)' : 'transparent',
+                border: `1.5px solid ${done ? '#ff6b6b' : 'rgba(255,255,255,0.18)'}`,
+                background: done ? 'rgba(255,100,100,0.2)' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.15s',
             }}>
-                {done && <CheckCircle2 size={10} style={{ color: '#6ee7a0' }} />}
+                {done && <CheckCircle2 size={10} style={{ color: '#ff6b6b' }} />}
             </div>
 
             {/* Code badge */}
             <span style={{
                 fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em',
                 padding: '2px 6px', borderRadius: 6,
-                background: course.isElective ? 'rgba(255,255,255,0.04)' : 'rgba(240,180,60,0.1)',
-                border: `1px solid ${course.isElective ? 'rgba(255,255,255,0.08)' : 'rgba(240,180,60,0.2)'}`,
-                color: done ? '#6ee7a0' : course.isElective ? 'rgba(255,255,255,0.3)' : 'rgba(240,180,60,0.7)',
+                background: course.isElective ? 'rgba(255,255,255,0.04)' : 'rgba(200,40,40,0.15)',
+                border: `1px solid ${course.isElective ? 'rgba(255,255,255,0.08)' : 'rgba(200,40,40,0.3)'}`,
+                color: done ? '#ff8a8a' : course.isElective ? 'rgba(255,255,255,0.3)' : 'rgba(255,100,100,0.7)',
                 flexShrink: 0, whiteSpace: 'nowrap', fontFamily: 'monospace',
                 transition: 'color 0.15s',
             }}>
@@ -182,10 +182,11 @@ function CourseRow({ course, done, onToggle }: { course: Course; done: boolean; 
             {/* Title */}
             <span style={{
                 flex: 1, fontSize: 11.5, lineHeight: 1.4,
-                color: done ? 'rgba(110,231,160,0.8)' : course.isElective ? 'rgba(255,255,255,0.35)' : 'rgba(255,240,200,0.65)',
+                color: done ? 'rgba(255,130,130,0.8)' : course.isElective ? 'rgba(255,255,255,0.35)' : 'rgba(255,240,240,0.65)',
                 fontStyle: course.isElective ? 'italic' : 'normal',
                 textDecoration: done ? 'line-through' : 'none',
                 transition: 'all 0.15s',
+                fontFamily: "'DM Sans', sans-serif"
             }}>
                 {course.title}
             </span>
@@ -193,7 +194,7 @@ function CourseRow({ course, done, onToggle }: { course: Course; done: boolean; 
             {/* Hours chip */}
             <span style={{
                 fontSize: 10, fontWeight: 600, flexShrink: 0,
-                color: done ? 'rgba(80,200,130,0.55)' : 'rgba(255,255,255,0.2)',
+                color: done ? 'rgba(255,100,100,0.55)' : 'rgba(255,255,255,0.2)',
                 transition: 'color 0.15s',
             }}>
                 {course.hours}h
@@ -202,7 +203,7 @@ function CourseRow({ course, done, onToggle }: { course: Course; done: boolean; 
     );
 }
 
-function SemesterCard({ sem, completed, onToggle, yearColor }: {
+function SemesterCard({ sem, completed, onToggle }: {
     sem: Semester;
     completed: Record<string, boolean>;
     onToggle: (id: string) => void;
@@ -214,27 +215,30 @@ function SemesterCard({ sem, completed, onToggle, yearColor }: {
     return (
         <div style={{
             flex: 1,
-            background: isAutumn ? 'rgba(240,180,60,0.04)' : 'rgba(100,160,255,0.04)',
-            border: `1px solid ${isAutumn ? 'rgba(240,180,60,0.12)' : 'rgba(100,160,255,0.12)'}`,
+            background: isAutumn ? 'rgba(160,20,20,0.08)' : 'rgba(100,10,10,0.08)',
+            border: `1px solid ${isAutumn ? 'rgba(200,40,40,0.15)' : 'rgba(150,20,20,0.15)'}`,
+            backdropFilter: 'blur(30px)',
             borderRadius: 16, padding: '14px 14px',
-            display: 'flex', flexDirection: 'column', gap: 0,
+            display: 'flex', flexDirection: 'column', gap: 4,
             minWidth: 0,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)'
         }}>
             {/* Semester header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <div style={{
                         width: 8, height: 8, borderRadius: '50%',
-                        background: isAutumn ? '#f0c050' : '#6090ff',
+                        background: isAutumn ? '#ff6b6b' : '#ff4d4d',
+                        boxShadow: `0 0 8px ${isAutumn ? '#ff6b6b' : '#ff4d4d'}`
                     }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: isAutumn ? 'rgba(240,180,60,0.7)' : 'rgba(100,160,255,0.7)', textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: isAutumn ? 'rgba(255,120,120,0.9)' : 'rgba(255,100,100,0.9)', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>
                         {sem.season}
                     </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>{doneCount}/{sem.courses.length}</span>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)' }}>·</span>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>{sem.totalHours} hrs</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{doneCount}/{sem.courses.length}</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>·</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{sem.totalHours} hrs</span>
                 </div>
             </div>
 
@@ -255,7 +259,7 @@ interface CourseTrackerPageProps {
     onClose: () => void;
 }
 
-const YEAR_COLORS = ['#f0c050', '#80e0b0', '#a0b8ff', '#f0a0c0'];
+const YEAR_COLORS = ['#ff6b6b', '#ff4d4d', '#e63946', '#d90429'];
 
 export function CourseTrackerPage({ isOpen, onClose }: CourseTrackerPageProps) {
     const [completed, setCompleted] = useState<Record<string, boolean>>({});
@@ -292,182 +296,213 @@ export function CourseTrackerPage({ isOpen, onClose }: CourseTrackerPageProps) {
             style={{
                 position: 'absolute', top: 0, right: 0, bottom: 0, width: '100%',
                 zIndex: 50,
-                background: 'radial-gradient(ellipse at 70% 0%, rgba(100,160,255,0.06) 0%, transparent 60%), #060e0e',
                 display: 'flex', flexDirection: 'column',
                 WebkitAppRegion: 'no-drag',
+                background: '#040000', // Deep dark base
+                overflow: 'hidden',
             } as React.CSSProperties}
         >
-            {/* ── Header ─────────────────────────────────────────────────── */}
+            {/* ── Breathtaking Ambient Background ── */}
             <div style={{
-                padding: '20px 28px 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.07)',
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                flexShrink: 0,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{
-                        width: 38, height: 38, borderRadius: 11,
-                        background: 'linear-gradient(135deg, rgba(100,160,255,0.2), rgba(60,100,200,0.1))',
-                        border: '1.5px solid rgba(100,160,255,0.3)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(100,160,255,0.1)',
-                    }}>
-                        <GraduationCap size={18} style={{ color: '#80b4ff' }} />
-                    </div>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#e8e0f0', fontFamily: "'Instrument Serif', serif", letterSpacing: '-0.02em' }}>
-                            Course Tracker
-                        </h1>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(180,200,255,0.4)', letterSpacing: '0.04em' }}>
-                            BS Computer Science & Engineering · Ohio State
-                        </p>
-                    </div>
-                </div>
+                position: 'absolute', inset: '-20%', zIndex: 0, pointerEvents: 'none',
+                background: `
+                  radial-gradient(circle at 70% 0%, rgba(187, 0, 0, 0.45), transparent 60%),
+                  radial-gradient(circle at 10% 80%, rgba(136, 0, 0, 0.35), transparent 50%),
+                  radial-gradient(circle at 90% 90%, rgba(80, 0, 0, 0.4), transparent 45%)
+                `,
+                filter: 'blur(70px)',
+            }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <motion.button
-                        whileHover={{ scale: 1.05, color: '#fca5a5' }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={resetAll}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 5,
-                            background: 'transparent',
-                            border: '1px solid rgba(255,100,100,0.2)',
-                            borderRadius: 8, padding: '5px 10px',
-                            color: 'rgba(255,150,140,0.5)', fontSize: 11,
-                            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        <RotateCcw size={11} />
-                        Reset
-                    </motion.button>
+            {/* Heavy noise film grain overlay overlay */}
+            <div style={{
+                position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+                opacity: 0.4, mixBlendMode: 'color-dodge',
+                filter: 'contrast(160%) brightness(130%) grayscale(100%)',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'repeat', backgroundSize: '140px'
+            }} />
 
-                    <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={onClose}
-                        style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                            cursor: 'pointer', color: 'rgba(255,240,170,0.5)',
-                            width: 30, height: 30, borderRadius: 9,
+            {/* Light darkening overall */}
+            <div style={{
+                position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+                background: 'rgba(0, 0, 0, 0.35)'
+            }} />
+
+            {/* Content wrapper with position relative to sit above absolute backgrounds */}
+            <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                {/* ── Header ─────────────────────────────────────────────────── */}
+                <div style={{
+                    padding: '20px 28px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.07)',
+                    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                    flexShrink: 0,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                            width: 38, height: 38, borderRadius: 12,
+                            background: 'linear-gradient(135deg, rgba(200,30,30,0.25), rgba(120,10,10,0.15))',
+                            border: '1px solid rgba(255,100,100,0.3)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                    >
-                        <X size={15} />
-                    </motion.button>
-                </div>
-            </div>
-
-            {/* ── Progress Summary ──────────────────────────────────────── */}
-            <div style={{
-                padding: '14px 28px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                flexShrink: 0,
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <div style={{ display: 'flex', gap: 20 }}>
-                        <div>
-                            <span style={{ fontSize: 20, fontWeight: 700, color: '#e8e0f0', lineHeight: 1 }}>
-                                {completedHours}
-                            </span>
-                            <span style={{ fontSize: 12, color: 'rgba(180,200,255,0.4)', marginLeft: 4 }}>
-                                / {TOTAL_HOURS} credit hours
-                            </span>
+                            boxShadow: '0 4px 16px rgba(187,0,0,0.2), inset 0 1px 0 rgba(255,150,150,0.15)',
+                        }}>
+                            <GraduationCap size={18} style={{ color: '#ff8a8a' }} />
                         </div>
-                        <div style={{ width: 1, background: 'rgba(255,255,255,0.08)' }} />
                         <div>
-                            <span style={{ fontSize: 20, fontWeight: 700, color: '#e8e0f0', lineHeight: 1 }}>
-                                {completedCourseCount}
-                            </span>
-                            <span style={{ fontSize: 12, color: 'rgba(180,200,255,0.4)', marginLeft: 4 }}>
-                                / {TOTAL_COURSES} courses
-                            </span>
+                            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 400, color: '#f8f0fc', fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', letterSpacing: '0.01em' }}>
+                                Course Tracker
+                            </h1>
+                            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,180,180,0.5)', letterSpacing: '0.04em', fontFamily: "'DM Sans', sans-serif" }}>
+                                BS Computer Science & Engineering · Ohio State
+                            </p>
                         </div>
                     </div>
-                    <div style={{
-                        padding: '3px 10px', borderRadius: 20,
-                        background: pct >= 75 ? 'rgba(80,200,130,0.12)' : pct >= 40 ? 'rgba(240,180,60,0.12)' : 'rgba(100,160,255,0.1)',
-                        border: `1px solid ${pct >= 75 ? 'rgba(80,200,130,0.25)' : pct >= 40 ? 'rgba(240,180,60,0.25)' : 'rgba(100,160,255,0.2)'}`,
-                        fontSize: 12, fontWeight: 700,
-                        color: pct >= 75 ? '#6ee7a0' : pct >= 40 ? '#f0c050' : '#80b4ff',
-                    }}>
-                        {pct}% complete
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <motion.button
+                            whileHover={{ scale: 1.05, color: '#fca5a5' }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={resetAll}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                background: 'transparent',
+                                border: '1px solid rgba(255,100,100,0.2)',
+                                borderRadius: 8, padding: '5px 10px',
+                                color: 'rgba(255,150,140,0.5)', fontSize: 11,
+                                cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            <RotateCcw size={11} />
+                            Reset
+                        </motion.button>
+
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={onClose}
+                            style={{
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                cursor: 'pointer', color: 'rgba(255,240,170,0.5)',
+                                width: 30, height: 30, borderRadius: 9,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                        >
+                            <X size={15} />
+                        </motion.button>
                     </div>
                 </div>
 
-                {/* Progress bar */}
-                <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                    <motion.div
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                        style={{
-                            height: '100%', borderRadius: 3,
-                            background: pct >= 75
-                                ? 'linear-gradient(90deg, #6ee7a0, #40c070)'
-                                : pct >= 40
-                                    ? 'linear-gradient(90deg, #f0c050, #c09030)'
-                                    : 'linear-gradient(90deg, #80b4ff, #5080d0)',
-                        }}
-                    />
-                </div>
-            </div>
-
-            {/* ── Schedule Grid ─────────────────────────────────────────── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px 32px' }}>
-                {SCHEDULE.map((yearData, yi) => (
-                    <div key={yearData.year} style={{ marginBottom: 28 }}>
-                        {/* Year label */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                            <div style={{
-                                fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
-                                textTransform: 'uppercase', color: YEAR_COLORS[yi],
-                                padding: '3px 10px', borderRadius: 20,
-                                background: `${YEAR_COLORS[yi]}18`,
-                                border: `1px solid ${YEAR_COLORS[yi]}30`,
-                            }}>
-                                Year {yearData.year}
+                {/* ── Progress Summary ──────────────────────────────────────── */}
+                <div style={{
+                    padding: '14px 28px',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    flexShrink: 0,
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', gap: 20 }}>
+                            <div>
+                                <span style={{ fontSize: 20, fontWeight: 700, color: '#e8e0f0', lineHeight: 1 }}>
+                                    {completedHours}
+                                </span>
+                                <span style={{ fontSize: 12, color: 'rgba(180,200,255,0.4)', marginLeft: 4 }}>
+                                    / {TOTAL_HOURS} credit hours
+                                </span>
                             </div>
-                            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.18)' }}>
-                                {yearData.autumn.totalHours + yearData.spring.totalHours} hrs
-                            </span>
+                            <div style={{ width: 1, background: 'rgba(255,255,255,0.08)' }} />
+                            <div>
+                                <span style={{ fontSize: 20, fontWeight: 700, color: '#e8e0f0', lineHeight: 1 }}>
+                                    {completedCourseCount}
+                                </span>
+                                <span style={{ fontSize: 12, color: 'rgba(180,200,255,0.4)', marginLeft: 4 }}>
+                                    / {TOTAL_COURSES} courses
+                                </span>
+                            </div>
                         </div>
-
-                        {/* Autumn + Spring side by side */}
-                        <div style={{ display: 'flex', gap: 14 }}>
-                            <SemesterCard
-                                sem={yearData.autumn}
-                                completed={completed}
-                                onToggle={toggle}
-                                yearColor={YEAR_COLORS[yi]}
-                            />
-                            <SemesterCard
-                                sem={yearData.spring}
-                                completed={completed}
-                                onToggle={toggle}
-                                yearColor={YEAR_COLORS[yi]}
-                            />
+                        <div style={{
+                            padding: '3px 10px', borderRadius: 20,
+                            background: pct >= 75 ? 'rgba(255,100,100,0.12)' : pct >= 40 ? 'rgba(200,40,40,0.12)' : 'rgba(150,20,20,0.1)',
+                            border: `1px solid ${pct >= 75 ? 'rgba(255,100,100,0.3)' : pct >= 40 ? 'rgba(200,40,40,0.3)' : 'rgba(150,20,20,0.2)'}`,
+                            fontSize: 12, fontWeight: 700,
+                            color: pct >= 75 ? '#ff8a8a' : pct >= 40 ? '#ff6b6b' : '#e63946',
+                        }}>
+                            {pct}% complete
                         </div>
                     </div>
-                ))}
 
-                {/* Legend */}
-                <div style={{ marginTop: 8, padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 10, height: 1, borderTop: '1.5px solid rgba(255,255,255,0.2)', borderStyle: 'dashed' }} />
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Elective / choose-one slot</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 10, height: 1, background: 'rgba(240,180,60,0.4)' }} />
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Required course</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <CheckCircle2 size={10} style={{ color: '#6ee7a0' }} />
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Completed</span>
+                    {/* Progress bar */}
+                    <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <motion.div
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                            style={{
+                                height: '100%', borderRadius: 3,
+                                background: pct >= 75
+                                    ? 'linear-gradient(90deg, #ff8a8a, #ff6b6b)'
+                                    : pct >= 40
+                                        ? 'linear-gradient(90deg, #ff6b6b, #e63946)'
+                                        : 'linear-gradient(90deg, #e63946, #d90429)',
+                            }}
+                        />
                     </div>
                 </div>
-            </div>
+
+                {/* ── Schedule Grid ─────────────────────────────────────────── */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px 32px' }}>
+                    {SCHEDULE.map((yearData, yi) => (
+                        <div key={yearData.year} style={{ marginBottom: 28 }}>
+                            {/* Year label */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <div style={{
+                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+                                    textTransform: 'uppercase', color: YEAR_COLORS[yi],
+                                    padding: '3px 10px', borderRadius: 20,
+                                    background: `${YEAR_COLORS[yi]}18`,
+                                    border: `1px solid ${YEAR_COLORS[yi]}30`,
+                                }}>
+                                    Year {yearData.year}
+                                </div>
+                                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.18)' }}>
+                                    {yearData.autumn.totalHours + yearData.spring.totalHours} hrs
+                                </span>
+                            </div>
+
+                            {/* Autumn + Spring side by side */}
+                            <div style={{ display: 'flex', gap: 14 }}>
+                                <SemesterCard
+                                    sem={yearData.autumn}
+                                    completed={completed}
+                                    onToggle={toggle}
+                                    yearColor={YEAR_COLORS[yi]}
+                                />
+                                <SemesterCard
+                                    sem={yearData.spring}
+                                    completed={completed}
+                                    onToggle={toggle}
+                                    yearColor={YEAR_COLORS[yi]}
+                                />
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Legend */}
+                    <div style={{ marginTop: 8, padding: '12px 16px', borderRadius: 16, background: 'rgba(20,0,0,0.3)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,100,100,0.1)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 10, height: 1, borderTop: '1.5px solid rgba(255,255,255,0.2)', borderStyle: 'dashed' }} />
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Elective / choose-one slot</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 10, height: 1, background: 'rgba(255,100,100,0.4)' }} />
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Required course</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle2 size={10} style={{ color: '#ff6b6b' }} />
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Completed</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div> {/* End of relative wrapper */}
         </motion.div>
     );
 }

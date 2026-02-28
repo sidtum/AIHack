@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RefreshCw, Mic, MicOff, Send, Sparkles, BookOpen } from 'lucide-react';
+import { X, RefreshCw, Mic, Send, Sparkles, BookOpen } from 'lucide-react';
 
 interface LectureSession {
   id: number;

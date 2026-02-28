@@ -163,7 +163,7 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
             style={{
                 position: 'absolute',
                 left: 0, top: 0, bottom: 0,
-                width: '272px',
+                width: '230px',
                 background: 'rgba(12, 18, 32, 0.97)',
                 backdropFilter: 'blur(40px)',
                 borderRight: `2px solid ${C.borderGold}`,

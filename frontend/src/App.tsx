@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, ArrowUp, Minus, X, SlidersHorizontal, ChevronRight, Volume2, VolumeX, Maximize2, Square, BookOpen, Briefcase, FileText } from 'lucide-react';
+import { Mic, ArrowUp, Minus, X, SlidersHorizontal, ChevronRight, Volume2, VolumeX, Maximize2, Square, BookOpen, Briefcase, FileText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import MayaLogo from './assets/logo.jpg';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { QuizView } from './components/QuizView';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -285,6 +286,7 @@ function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCareerDashboardOpen, setIsCareerDashboardOpen] = useState(false);
   const [isNotesDashboardOpen, setIsNotesDashboardOpen] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [isCourseTrackerOpen, setIsCourseTrackerOpen] = useState(false);
   const [highlightFields, setHighlightFields] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
@@ -737,32 +739,22 @@ function App() {
         </div>
 
         {/* Separator */}
-        <div style={{ width: 1, height: 18, background: C.borderGold, marginLeft: 4, marginRight: 2, flexShrink: 0 }} />
+        <div style={{ width: 1, height: 18, background: C.borderGold, marginLeft: 4, marginRight: 8, flexShrink: 0 }} />
 
-        {/* Maya Wordmark */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 0, marginRight: 4, flexShrink: 0, ...({ WebkitAppRegion: 'no-drag' } as any) }}>
-          <span style={{
-            fontFamily: "'Instrument Serif', serif",
-            fontStyle: 'italic',
-            fontSize: 20,
-            fontWeight: 400,
-            color: C.accent,
-            letterSpacing: '-0.02em',
-            textShadow: `0 0 24px rgba(212, 175, 108, 0.4)`,
-            lineHeight: 1,
-          }}>
-            M
-          </span>
+        {/* Maya Wordmark with Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, flexShrink: 0, ...({ WebkitAppRegion: 'no-drag' } as any) }}>
+          <img src={MayaLogo} alt="Maya Logo" style={{ width: 22, height: 22 }} />
           <span style={{
             fontFamily: "'Instrument Serif', serif",
             fontStyle: 'normal',
-            fontSize: 16,
+            fontSize: 22,
             fontWeight: 400,
-            color: `rgba(212, 175, 108, 0.7)`,
-            letterSpacing: '-0.01em',
+            color: C.accent,
+            letterSpacing: '0.01em',
+            textShadow: `0 2px 12px rgba(212, 175, 108, 0.3)`,
             lineHeight: 1,
           }}>
-            aya
+            Maya
           </span>
         </div>
 
@@ -848,23 +840,6 @@ function App() {
             {isTTSEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
           </motion.button>
 
-          {/* Profile */}
-          <motion.button
-            whileHover={{ scale: 1.04, background: 'rgba(212, 175, 108, 0.1)' }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setIsProfileOpen(true)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'transparent',
-              border: '1px solid transparent',
-              borderRadius: 7, width: 28, height: 28, cursor: 'pointer',
-              color: 'rgba(212, 175, 108, 0.45)',
-              transition: 'all 0.2s',
-            }}
-          >
-            <SlidersHorizontal size={12} />
-          </motion.button>
-
           {/* Separator */}
           <div style={{ width: 1, height: 18, background: C.borderGold }} />
 
@@ -899,9 +874,10 @@ function App() {
         />
 
         {/* ── LEFT PANE — Chat sidebar ── */}
-        <div
+        <motion.div
+          animate={{ width: isChatCollapsed ? 48 : 230 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           style={{
-            width: 260,
             flexShrink: 0, minHeight: 0,
             display: 'flex', flexDirection: 'column',
             position: 'relative',
@@ -929,15 +905,62 @@ function App() {
             background: 'linear-gradient(180deg, rgba(8,12,24,0.3) 0%, rgba(8,12,24,0.15) 40%, rgba(8,12,24,0.45) 100%)',
           }} />
 
-          {/* Chat content */}
+          {/* Chat content & Sidebar Controls */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative', zIndex: 2 }}>
+
+            {/* Sidebar Header (Controls) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isChatCollapsed ? 'center' : 'space-between',
+              padding: isChatCollapsed ? '12px 0' : '12px 14px',
+              borderBottom: `1px solid rgba(255,255,255,0.05)`,
+              flexDirection: isChatCollapsed ? 'column' : 'row',
+              gap: isChatCollapsed ? 12 : 0,
+            }}>
+              {!isChatCollapsed && (
+                <span style={{ fontSize: 10, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: "'JetBrains Mono', monospace" }}>
+                  Assistant
+                </span>
+              )}
+              <div style={{ display: 'flex', flexDirection: isChatCollapsed ? 'column' : 'row', gap: 6 }}>
+                <button
+                  title="Profile"
+                  onClick={() => setIsProfileOpen(true)}
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: 'rgba(212, 175, 108, 0.65)', width: 24, height: 24,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 6, transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(212, 175, 108, 0.1)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <SlidersHorizontal size={14} />
+                </button>
+                <button
+                  title={isChatCollapsed ? "Expand Chat" : "Minimize Chat"}
+                  onClick={() => setIsChatCollapsed(!isChatCollapsed)}
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: C.textDim, width: 24, height: 24,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 6, transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.color = C.textPrimary; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textDim; }}
+                >
+                  {isChatCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                </button>
+              </div>
+            </div>
 
             {/* ── CHAT WORKSPACE ── */}
             <div style={{
               position: 'relative', zIndex: 5,
               flex: 1, overflowY: 'auto',
               padding: '20px 18px 10px',
-              display: 'flex', flexDirection: 'column', gap: 12,
+              display: isChatCollapsed ? 'none' : 'flex', flexDirection: 'column', gap: 12,
             }}>
               <AnimatePresence>
                 {messages.length === 0 && (
@@ -1092,14 +1115,14 @@ function App() {
                       />
                       <p style={{
                         fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 8.5, letterSpacing: '0.22em',
+                        fontSize: 7.5, letterSpacing: '0.22em',
                         textTransform: 'uppercase',
                         color: 'rgba(212, 175, 108, 0.4)',
                         marginBottom: 5,
                         fontWeight: 400,
                       }}>MAYA</p>
                       <div style={{
-                        fontSize: 12.5, lineHeight: 1.65,
+                        fontSize: 11.5, lineHeight: 1.65,
                         color: 'rgba(245, 237, 216, 0.88)',
                         whiteSpace: 'pre-wrap',
                         fontFamily: "'DM Sans', sans-serif",
@@ -1195,7 +1218,7 @@ function App() {
                           transformOrigin: 'top',
                         }}
                       />
-                      <p style={{ fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(212, 175, 108, 0.4)', marginBottom: 8, fontWeight: 400, fontFamily: "'JetBrains Mono', monospace" }}>MAYA</p>
+                      <p style={{ fontSize: 7.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(212, 175, 108, 0.4)', marginBottom: 8, fontWeight: 400, fontFamily: "'JetBrains Mono', monospace" }}>MAYA</p>
                       <SkeletonLines />
                     </div>
                   </motion.div>
@@ -1215,7 +1238,7 @@ function App() {
                     transition={{ type: 'spring', stiffness: 340, damping: 28 }}
                     style={{ alignSelf: 'flex-start', width: '100%', maxWidth: '90%' }}
                   >
-                    <p style={{ fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: `rgba(212, 175, 108, 0.45)`, marginBottom: 5, paddingLeft: 14, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>MAYA</p>
+                    <p style={{ fontSize: 8.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: `rgba(212, 175, 108, 0.45)`, marginBottom: 5, paddingLeft: 14, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>MAYA</p>
                     <div style={{
                       background: C.glass,
                       border: `1px solid ${C.borderGlass}`,
@@ -1305,7 +1328,7 @@ function App() {
             }} />
 
             {/* ── FLOATING GLASS PILL INPUT ── */}
-            <div style={{ position: 'relative', zIndex: 10, padding: '12px 14px 16px', flexShrink: 0 }}>
+            <div style={{ position: 'relative', zIndex: 10, padding: '12px 14px 16px', flexShrink: 0, display: isChatCollapsed ? 'none' : 'block' }}>
               <motion.div
                 animate={{
                   boxShadow: focused
@@ -1344,7 +1367,7 @@ function App() {
                   placeholder="Ask Maya anything…"
                   style={{
                     flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    fontSize: 12.5, color: C.textPrimary,
+                    fontSize: 11.5, color: C.textPrimary,
                     fontFamily: "'DM Sans', sans-serif",
                     fontWeight: 300,
                     resize: 'none', overflow: 'hidden',
@@ -1404,7 +1427,8 @@ function App() {
               </motion.div>
             </div>
           </div>
-        </div>
+        </motion.div>
+
 
         {/* ── RIGHT PANE — browser + study/overlays ── */}
         {!showOnboarding && (
@@ -1518,7 +1542,7 @@ function App() {
 
       </div>
 
-    </div>
+    </div >
   );
 }
 
