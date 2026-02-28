@@ -147,7 +147,7 @@ Phone country: United States +1  ← fill this BEFORE the phone number field
 Phone: type exactly the word   phone_number    (auto-substituted)
 Location: {profile.get('location', 'N/A')}
 University: {profile.get('university', 'N/A')}  ← type "Ohio State" to search
-Degree: Bachelor's | Grad: May {profile.get('graduation_year', 'N/A')} | GPA: {profile.get('gpa', 'N/A')}
+Degree: Bachelor's | Grad: May {profile.get('graduation_year', 'N/A')} | GPA: {profile.get('gpa', 'N/A')} (GPA field may not exist on this form — skip if not present)
 Work authorization: {profile.get('work_authorization') or 'US Citizen'}
 H-1B sponsorship needed: No
 Pronouns: He/Him  ← type "He" to search (the option is "He/ Him" with a space)
@@ -163,7 +163,7 @@ Disability: No disability
 1. Upload resume FIRST, wait 4 seconds for autofill, then only fill missing or wrong fields.
 2. After typing "phone_number" or "email_address" the field looks blank — that is correct, DO NOT retype.
 3. For every dropdown/combobox: click the field, type a short prefix, wait for suggestions to appear,
-   then click the matching option. Never submit before all required fields are complete.
+   then click the matching option. ALWAYS click the suggestion before moving to any other field.
 4. For graduation date: select the end month dropdown and click the suggestion BEFORE typing the end year.
 """
 
@@ -247,10 +247,10 @@ async def apply_to_job(job: dict, profile: dict, ws_broadcast, tailored_resume_p
 
         task = _build_task(job, profile, resume_path, transcript_path)
 
-        # Model selection — defaults to Gemini 3.1 Pro Preview.
+        # Model selection — defaults to Gemini 3.1 Pro.
         # Override via JOB_AGENT_MODEL env var.
         # Gemini models require GOOGLE_API_KEY; OpenAI models require OPENAI_API_KEY.
-        model_name = os.environ.get("JOB_AGENT_MODEL", "gemini-3.1-pro-preview")
+        model_name = os.environ.get("JOB_AGENT_MODEL", "gemini-3-flash-preview")
         if "gemini" in model_name.lower():
             llm = ChatGoogle(
                 model=model_name,

@@ -23,13 +23,10 @@ sms_router = APIRouter(prefix="/sms", tags=["sms"])
 
 LINQ_API_BASE = "https://api.linqapp.com"
 CAPABILITIES_TEXT = (
-    "Here's what I can do via text:\n\n"
-    "Career:\n"
-    "  \"Apply to internships\"\n\n"
-    "Academic:\n"
-    "  \"Quiz me on my OS exam\"\n"
-    "  \"Help me study for finals\"\n\n"
-    "Text STOP at any time to cancel a running task."
+    "Here's what I can help with:\n\n"
+    "Career: \"apply to internships\"\n"
+    "Academic: \"quiz me on my OS exam\" or \"help me study for finals\"\n\n"
+    "Just text STOP anytime to cancel something."
 )
 
 # Running tasks indexed by chat_id for STOP support
@@ -156,9 +153,40 @@ async def broadcast_sms_to_desktop(text: str, sender: str, direction: str, ws_se
     await ws_send(json.dumps({"type": msg_type, "text": text, "source": "sms"}))
 
 
+# ── LLM intent helpers ───────────────────────────────────────────────────────
+
+async def _llm_is_confirm(text: str) -> bool:
+    """Use an LLM to decide if the user's reply is a confirmation. Falls back to keyword match."""
+    try:
+        import openai
+        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        resp = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "The user was asked to confirm or decline an action. "
+                        "Classify their reply as 'confirm' or 'decline'. "
+                        "Confirm covers: yes, yeah, sure, ok, sounds good, go ahead, let's do it, yep, do it, go for it, etc. "
+                        "Decline covers: no, nope, cancel, stop, not now, never mind, skip, etc. "
+                        "Reply with only one word: confirm or decline."
+                    ),
+                },
+                {"role": "user", "content": text},
+            ],
+            max_tokens=5,
+            temperature=0,
+        )
+        return resp.choices[0].message.content.strip().lower() == "confirm"
+    except Exception:
+        t = text.lower().strip()
+        return any(kw in t for kw in ["yes", "yeah", "sure", "ok", "proceed", "go ahead", "do it", "confirm"])
+
+
 # ── State machine handlers ────────────────────────────────────────────────────
 
-async def handle_stop_command(chat_id: str, client: LinqClient) -> None:
+async def handle_stop_command(chat_id: str, client: LinqClient, ws_send: Callable) -> None:
     from database import update_sms_session
 
     task = _active_tasks.pop(chat_id, None)
@@ -169,10 +197,12 @@ async def handle_stop_command(chat_id: str, client: LinqClient) -> None:
         except asyncio.CancelledError:
             pass
     update_sms_session(chat_id, state="idle", pending_action_type=None, pending_action_data=None)
-    await client.send_message(chat_id, "Stopped. Task cancelled.")
+    msg = "Got it, stopped! Let me know whenever you want to try again."
+    await client.send_message(chat_id, msg)
+    await broadcast_sms_to_desktop(msg, "", "outbound", ws_send)
 
 
-async def handle_new_intent(chat_id: str, text: str, client: LinqClient) -> None:
+async def handle_new_intent(chat_id: str, text: str, client: LinqClient, ws_send: Callable) -> None:
     from database import update_sms_session
     from main import classify_intent
 
@@ -180,11 +210,11 @@ async def handle_new_intent(chat_id: str, text: str, client: LinqClient) -> None
 
     if intent == "career":
         plan = (
-            "Action Plan:\n"
-            "1. Find a Summer 2026 internship on SimplifyJobs.\n"
-            "2. Tailor resume for the role.\n"
-            "3. Auto-fill and submit the application.\n\n"
-            "Reply YES to confirm."
+            "Here's the plan:\n"
+            "1. Find a Summer 2026 internship on SimplifyJobs\n"
+            "2. Tailor your resume for the role\n"
+            "3. Auto-fill and submit the application\n\n"
+            "Want me to go ahead?"
         )
         update_sms_session(
             chat_id,
@@ -193,14 +223,15 @@ async def handle_new_intent(chat_id: str, text: str, client: LinqClient) -> None
             pending_action_data=text,
         )
         await client.send_message(chat_id, plan)
+        await broadcast_sms_to_desktop(plan, "", "outbound", ws_send)
 
     elif intent in ("academic", "quiz"):
         plan = (
-            "Action Plan:\n"
-            "1. Check recent study sessions (< 24h) or scrape Canvas fresh.\n"
-            "2. Generate key concepts from course content.\n"
-            "3. Quiz you one question at a time (A/B/C/D).\n\n"
-            "Reply YES to confirm."
+            "Here's what I'll do:\n"
+            "1. Grab your recent Canvas content (or pull fresh if needed)\n"
+            "2. Pull out the key concepts\n"
+            "3. Quiz you one at a time\n\n"
+            "Want to start?"
         )
         update_sms_session(
             chat_id,
@@ -209,9 +240,11 @@ async def handle_new_intent(chat_id: str, text: str, client: LinqClient) -> None
             pending_action_data=text,
         )
         await client.send_message(chat_id, plan)
+        await broadcast_sms_to_desktop(plan, "", "outbound", ws_send)
 
     else:
         await client.send_message(chat_id, CAPABILITIES_TEXT)
+        await broadcast_sms_to_desktop(CAPABILITIES_TEXT, "", "outbound", ws_send)
 
 
 async def handle_confirmation_response(
@@ -223,18 +256,19 @@ async def handle_confirmation_response(
     ws_send: Callable,
 ) -> None:
     from database import update_sms_session
-    from main import classify_intent
 
-    intent = classify_intent(text)
+    confirmed = await _llm_is_confirm(text)
 
-    if intent == "confirm":
+    if confirmed:
         action_type = session.get("pending_action_type")
         action_data = session.get("pending_action_data", "")
 
         if action_type == "career":
             update_sms_session(chat_id, state="career_running")
             await client.react_to_message(incoming_message_id, "like")
-            await client.send_message(chat_id, "On it! Searching and applying now...")
+            msg = "On it! Searching for a good fit and submitting your application now..."
+            await client.send_message(chat_id, msg)
+            await broadcast_sms_to_desktop(msg, "", "outbound", ws_send)
             task = asyncio.create_task(
                 _run_career_flow_sms(chat_id, client, incoming_message_id, ws_send)
             )
@@ -243,7 +277,9 @@ async def handle_confirmation_response(
         elif action_type == "academic":
             update_sms_session(chat_id, state="academic_running")
             await client.react_to_message(incoming_message_id, "like")
-            await client.send_message(chat_id, "On it! Accessing Canvas now...")
+            msg = "On it! Pulling up your Canvas content now..."
+            await client.send_message(chat_id, msg)
+            await broadcast_sms_to_desktop(msg, "", "outbound", ws_send)
             task = asyncio.create_task(
                 _run_academic_flow_sms(chat_id, client, action_data, incoming_message_id, ws_send)
             )
@@ -251,10 +287,14 @@ async def handle_confirmation_response(
 
         else:
             update_sms_session(chat_id, state="idle")
-            await client.send_message(chat_id, "No problem! Let me know if you need anything else.")
+            msg = "No worries, just say the word if you change your mind!"
+            await client.send_message(chat_id, msg)
+            await broadcast_sms_to_desktop(msg, "", "outbound", ws_send)
     else:
         update_sms_session(chat_id, state="idle", pending_action_type=None, pending_action_data=None)
-        await client.send_message(chat_id, "No problem! Let me know if you need anything else.")
+        msg = "No worries, just say the word if you change your mind!"
+        await client.send_message(chat_id, msg)
+        await broadcast_sms_to_desktop(msg, "", "outbound", ws_send)
 
 
 async def handle_quiz_answer(
@@ -273,7 +313,7 @@ async def handle_quiz_answer(
 
     if idx >= len(questions):
         update_sms_session(chat_id, state="idle")
-        await client.send_message(chat_id, "Quiz complete!")
+        await client.send_message(chat_id, "That's a wrap! Nice work.")
         return
 
     q = questions[idx]
@@ -502,7 +542,7 @@ async def handle_incoming_sms(payload: dict, ws_send: Callable) -> None:
 
     # Emergency STOP
     if text.upper() == "STOP":
-        await handle_stop_command(chat_id, client)
+        await handle_stop_command(chat_id, client, ws_send)
         return
 
     state = session.get("state", "idle")
@@ -514,7 +554,7 @@ async def handle_incoming_sms(payload: dict, ws_send: Callable) -> None:
         elif state == "quiz_active":
             await handle_quiz_answer(chat_id, text, session, client, message_id)
         else:
-            await handle_new_intent(chat_id, text, client)
+            await handle_new_intent(chat_id, text, client, ws_send)
     finally:
         await client.stop_typing(chat_id)
 

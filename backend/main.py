@@ -5,7 +5,8 @@ import pdfplumber
 import io
 import os
 import asyncio
-import openai
+from google import genai
+from google.genai import types as genai_types
 from dotenv import load_dotenv
 from database import (
     init_db, get_user_profile, update_user_profile,
@@ -130,7 +131,7 @@ async def upload_resume(file: UploadFile = File(...)):
     with open(pdf_path, "wb") as f:
         f.write(content)
 
-    client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
 
     prompt = f"""Extract the following fields from this resume text and return ONLY valid JSON with no markdown, no explanation.
 
@@ -151,13 +152,8 @@ Resume text:
 Return only this JSON structure:
 {{"name": "", "email": "", "phone": null, "gpa": null, "location": "", "university": null, "graduation_year": null, "skills": [], "target_roles": []}}"""
 
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-    )
-
-    raw = response.choices[0].message.content.strip()
+    response = await _client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    raw = response.text.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
 
     try:
@@ -619,7 +615,7 @@ async def handle_generate_cards(msg: dict):
 async def handle_generate_study_plan(content: str, subject: str):
     """Generate an AI study plan from lecture content and broadcast it."""
     try:
-        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
         subject_hint = f' for **{subject}**' if subject else ''
         prompt = f"""You are a study coach. Based on the following lecture material{subject_hint}, create a concise, actionable 5-step study plan the student should follow to prepare for their exam.
 
@@ -629,13 +625,8 @@ Lecture material:
 Return ONLY a JSON array of exactly 5 steps, each with "step" (1-5) and "text" (one sentence, max 20 words, actionable):
 [{{"step": 1, "text": "..."}}, ...]"""
 
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            response_format={"type": "json_object"},
-        )
-        raw = response.choices[0].message.content.strip()
+        response = await _client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        raw = response.text.strip()
         parsed = json.loads(raw)
         steps = []
         if isinstance(parsed, list):
@@ -663,16 +654,15 @@ async def handle_study_qa(question: str, context: str):
         # Fallback to the default scraped context if RAG has no data
         final_context = rag_context if rag_context.strip() else context[:6000]
         
-        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": f"You are a helpful tutor. Use the following course material to answer the student's question. Be concise but thorough.\n\nCourse Material:\n{final_context}"},
-                {"role": "user", "content": question},
-            ],
-            temperature=0.3,
+        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+        response = await _client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=question,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=f"You are a helpful tutor. Use the following course material to answer the student's question. Be concise but thorough.\n\nCourse Material:\n{final_context}",
+            ),
         )
-        answer = response.choices[0].message.content
+        answer = response.text
         await ws_send(json.dumps({
             "type": "study_qa_response",
             "text": answer,
