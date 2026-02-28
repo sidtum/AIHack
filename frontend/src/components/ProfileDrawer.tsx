@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, X, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Upload, X, CheckCircle2, AlertCircle, RefreshCw, GraduationCap } from 'lucide-react';
 
 interface ProfileDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     highlightFields?: string[];
+    onOpenCourseTracker: () => void;
 }
 
 const EEO_OPTIONS: Record<string, string[]> = {
@@ -23,7 +24,7 @@ const EEO_OPTIONS: Record<string, string[]> = {
     ],
 };
 
-export function ProfileDrawer({ isOpen, onClose, highlightFields = [] }: ProfileDrawerProps) {
+export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCourseTracker }: ProfileDrawerProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [isUploadingTranscript, setIsUploadingTranscript] = useState(false);
     const [profile, setProfile] = useState<any>(null);
@@ -170,6 +171,26 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [] }: Profile
                     <X size={17} />
                 </button>
             </div>
+
+            {/* Course Tracker button */}
+            <motion.button
+                whileHover={{ scale: 1.02, background: 'rgba(100,180,255,0.12)' }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onOpenCourseTracker}
+                style={{
+                    width: '100%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    background: 'rgba(100,180,255,0.07)',
+                    border: '1px solid rgba(100,180,255,0.22)',
+                    borderRadius: 10, padding: '8px 14px',
+                    color: 'rgba(140,200,255,0.8)', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                    letterSpacing: '0.04em', transition: 'all 0.2s',
+                }}
+            >
+                <GraduationCap size={14} />
+                Course Tracker
+            </motion.button>
 
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
                 {/* Resume Upload zone */}

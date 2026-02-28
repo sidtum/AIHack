@@ -9,6 +9,7 @@ import { StudyResults, StudyResultsData } from './components/StudyResults';
 import { AgentBrowser } from './components/AgentBrowser';
 import { CareerDashboard } from './components/CareerDashboard';
 import { NotesDashboard } from './components/NotesDashboard';
+import { CourseTrackerPage } from './components/CourseTrackerPage';
 import { SmsBadge } from './components/SmsBadge';
 import { StudyModePage } from './components/StudyModePage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
@@ -174,6 +175,7 @@ function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCareerDashboardOpen, setIsCareerDashboardOpen] = useState(false);
   const [isNotesDashboardOpen, setIsNotesDashboardOpen] = useState(false);
+  const [isCourseTrackerOpen, setIsCourseTrackerOpen] = useState(false);
   const [highlightFields, setHighlightFields] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
   const [focused, setFocused] = useState(false);
@@ -236,12 +238,12 @@ function App() {
   // useLayoutEffect fires before paint, preventing a single-frame flash of Google showing through overlays
   useLayoutEffect(() => {
     const ipc = (window as any).require?.('electron')?.ipcRenderer;
-    if (mode !== 'chat' || isCareerDashboardOpen || isNotesDashboardOpen) {
+    if (mode !== 'chat' || isCareerDashboardOpen || isNotesDashboardOpen || isCourseTrackerOpen) {
       ipc?.send('hide-browser');
     } else {
       browserForceUpdateRef.current?.();
     }
-  }, [mode, isCareerDashboardOpen, isNotesDashboardOpen]);
+  }, [mode, isCareerDashboardOpen, isNotesDashboardOpen, isCourseTrackerOpen]);
 
   // ── WebSocket connection with auto-reconnect ──
   const connectWSRef = useRef<() => void>(() => { });
@@ -753,6 +755,7 @@ function App() {
           isOpen={isProfileOpen}
           onClose={() => { setIsProfileOpen(false); setHighlightFields([]); }}
           highlightFields={highlightFields}
+          onOpenCourseTracker={() => { setIsProfileOpen(false); setHighlightFields([]); setIsCourseTrackerOpen(true); }}
         />
 
         {/* ── LEFT PANE (animated width) — always shows chat ── */}
@@ -1232,6 +1235,10 @@ function App() {
             <NotesDashboard
               isOpen={isNotesDashboardOpen}
               onClose={() => setIsNotesDashboardOpen(false)}
+            />
+            <CourseTrackerPage
+              isOpen={isCourseTrackerOpen}
+              onClose={() => setIsCourseTrackerOpen(false)}
             />
           </div>
         )}
