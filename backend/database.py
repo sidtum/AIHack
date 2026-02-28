@@ -63,6 +63,17 @@ def init_db():
     tailored_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "tailored_resumes")
     os.makedirs(tailored_dir, exist_ok=True)
 
+    # Create Lecture Sessions Table (transcript + notes only — no audio stored)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS lecture_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        transcript TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    ''')
+
     # Create Study Sessions Table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS study_sessions (
@@ -281,6 +292,50 @@ def get_linq_config() -> dict:
         "linq_webhook_id": profile.get("linq_webhook_id"),
         "linq_webhook_secret": profile.get("linq_webhook_secret"),
     }
+
+
+# ── Lecture Sessions ──────────────────────────────────────────────────────────
+
+def save_lecture_session(title: str, transcript: str, notes: str) -> int:
+    conn = sqlite3.connect(DB_FILENAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO lecture_sessions (title, transcript, notes) VALUES (?, ?, ?)",
+        (title, transcript, notes),
+    )
+    session_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return session_id
+
+
+def get_lecture_sessions() -> list[dict]:
+    conn = sqlite3.connect(DB_FILENAME)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT id, title, created_at FROM lecture_sessions ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_lecture_session(session_id: int) -> dict | None:
+    conn = sqlite3.connect(DB_FILENAME)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT * FROM lecture_sessions WHERE id = ?", (session_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def update_lecture_session_title(session_id: int, title: str) -> None:
+    conn = sqlite3.connect(DB_FILENAME)
+    conn.execute(
+        "UPDATE lecture_sessions SET title = ? WHERE id = ?", (title, session_id)
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_recent_study_session(max_age_hours: int = 24) -> dict | None:

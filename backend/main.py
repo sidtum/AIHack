@@ -12,6 +12,8 @@ from database import (
     update_eeo_fields, get_profile_completeness, save_study_session,
     get_study_session, get_linq_config, get_job_applications,
     update_job_application_status,
+    save_lecture_session, get_lecture_sessions, get_lecture_session,
+    update_lecture_session_title,
 )
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -164,6 +166,61 @@ Return only this JSON structure:
     update_user_profile(extracted_data)
 
     return {"status": "success", "profile": get_user_profile()}
+
+@app.post("/process-lecture-audio")
+async def process_lecture_audio(file: UploadFile = File(...)):
+    from notes_engine import transcribe_audio, generate_notes
+    audio_bytes = await file.read()
+    mimetype = file.content_type or "audio/webm"
+
+    transcript = await transcribe_audio(audio_bytes, mimetype)
+    if not transcript:
+        return {"status": "error", "message": "Transcription returned empty. Try speaking closer to the mic."}
+
+    # Auto-title: first 60 chars stripped to the last complete word
+    raw_title = transcript[:60]
+    if len(transcript) > 60:
+        raw_title = raw_title.rsplit(" ", 1)[0]
+    title = raw_title.strip().rstrip(".,;:") or "Untitled Lecture"
+
+    notes = await generate_notes(transcript, title)
+    session_id = save_lecture_session(title, transcript, notes)
+    return get_lecture_session(session_id)
+
+
+@app.get("/lecture-sessions")
+def lecture_sessions_list():
+    return get_lecture_sessions()
+
+
+@app.get("/lecture-sessions/{session_id}")
+def lecture_session_detail(session_id: int):
+    from fastapi import HTTPException
+    session = get_lecture_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+
+@app.post("/lecture-sessions/{session_id}/qa")
+async def lecture_session_qa(session_id: int, request: Request):
+    from notes_engine import answer_question
+    data = await request.json()
+    question = data.get("question", "").strip()
+    session = get_lecture_session(session_id)
+    if not session:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Session not found")
+    answer = await answer_question(question, session.get("notes", ""), session.get("transcript", ""))
+    return {"answer": answer}
+
+
+@app.patch("/lecture-sessions/{session_id}/title")
+async def update_session_title(session_id: int, request: Request):
+    data = await request.json()
+    update_lecture_session_title(session_id, data.get("title", ""))
+    return {"status": "ok"}
+
 
 @app.post("/upload-transcript")
 async def upload_transcript(file: UploadFile = File(...)):

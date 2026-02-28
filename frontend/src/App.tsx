@@ -8,6 +8,7 @@ import { StudyPanel } from './components/StudyPanel';
 import { StudyResults, StudyResultsData } from './components/StudyResults';
 import { AgentBrowser } from './components/AgentBrowser';
 import { CareerDashboard } from './components/CareerDashboard';
+import { NotesDashboard } from './components/NotesDashboard';
 import { SmsBadge } from './components/SmsBadge';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useTTS } from './hooks/useTTS';
@@ -171,6 +172,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCareerDashboardOpen, setIsCareerDashboardOpen] = useState(false);
+  const [isNotesDashboardOpen, setIsNotesDashboardOpen] = useState(false);
   const [highlightFields, setHighlightFields] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
   const [focused, setFocused] = useState(false);
@@ -222,12 +224,12 @@ function App() {
   // useLayoutEffect fires before paint, preventing a single-frame flash of Google showing through overlays
   useLayoutEffect(() => {
     const ipc = (window as any).require?.('electron')?.ipcRenderer;
-    if (mode !== 'chat' || isCareerDashboardOpen) {
+    if (mode !== 'chat' || isCareerDashboardOpen || isNotesDashboardOpen) {
       ipc?.send('hide-browser');
     } else {
       browserForceUpdateRef.current?.();
     }
-  }, [mode, isCareerDashboardOpen]);
+  }, [mode, isCareerDashboardOpen, isNotesDashboardOpen]);
 
   // ── WebSocket connection with auto-reconnect ──
   const connectWSRef = useRef<() => void>(() => { });
@@ -926,11 +928,16 @@ function App() {
               navigateRef={browserNavigateRef}
               forceUpdateRef={browserForceUpdateRef}
               onOpenCareerDashboard={() => setIsCareerDashboardOpen(true)}
+              onOpenNotesDashboard={() => setIsNotesDashboardOpen(true)}
             />
           )}
           <CareerDashboard
             isOpen={isCareerDashboardOpen}
             onClose={() => setIsCareerDashboardOpen(false)}
+          />
+          <NotesDashboard
+            isOpen={isNotesDashboardOpen}
+            onClose={() => setIsNotesDashboardOpen(false)}
           />
         </div>
 

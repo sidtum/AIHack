@@ -6,9 +6,10 @@ interface AgentBrowserProps {
   navigateRef?: React.MutableRefObject<((url: string) => void) | null>;
   forceUpdateRef?: React.MutableRefObject<(() => void) | null>;
   onOpenCareerDashboard?: () => void;
+  onOpenNotesDashboard?: () => void;
 }
 
-export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboard }: AgentBrowserProps) {
+export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboard, onOpenNotesDashboard }: AgentBrowserProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inputUrl, setInputUrl] = useState('https://www.google.com');
   const [canGoBack, setCanGoBack] = useState(false);
@@ -159,8 +160,9 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
             borderRadius: 6, padding: '3px 8px',
             fontSize: 10, color: 'rgba(240,200,100,0.7)',
             cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500, letterSpacing: '0.04em',
+            fontWeight: 500, letterSpacing: '0.08em',
             flexShrink: 0, whiteSpace: 'nowrap',
+            textTransform: 'uppercase',
           }}
         >
           Carmen
@@ -181,6 +183,23 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
           }}
         >
           Career
+        </button>
+
+        <button
+          onClick={onOpenNotesDashboard}
+          title="Open Notes Dashboard"
+          style={{
+            background: 'rgba(150,100,255,0.08)',
+            border: '1px solid rgba(150,100,255,0.22)',
+            borderRadius: 6, padding: '3px 8px',
+            fontSize: 10, color: 'rgba(180,140,255,0.8)',
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            fontWeight: 500, letterSpacing: '0.08em',
+            flexShrink: 0, whiteSpace: 'nowrap',
+            textTransform: 'uppercase',
+          }}
+        >
+          Notes
         </button>
 
         <input
