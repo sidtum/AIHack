@@ -41,6 +41,8 @@ app.add_middleware(
 # Instead of broadcasting to all connections, we track only the latest one.
 # This prevents duplicates when React hot-reloads or reconnects.
 active_ws: WebSocket | None = None
+# Track the currently running background task so it can be cancelled
+current_task: asyncio.Task | None = None
 
 async def ws_send(message: str):
     """Send to the single active websocket."""
@@ -58,6 +60,8 @@ def classify_intent(text: str) -> str:
     t = text.lower().strip()
     if any(kw in t for kw in ["apply", "internship", "job", "career"]):
         return "career"
+    if any(kw in t for kw in ["study mode", "focus mode", "i'm studying", "im studying", "block sites", "block distractions", "enter study mode", "start study mode"]):
+        return "study_mode"
     if any(kw in t for kw in ["exam", "study", "canvas", "course", "class", "midterm", "final"]):
         return "academic"
     if any(kw in t for kw in ["yes", "proceed", "go ahead", "do it", "confirm"]):
@@ -69,7 +73,7 @@ def classify_intent(text: str) -> str:
     return "general"
 
 # ── Pending action state (per-session, single-user demo) ─────────────────────
-pending_action = {"type": None, "data": None}
+pending_action = {"type": None, "data": None, "course": None}
 
 # ── REST Endpoints ───────────────────────────────────────────────────────────
 
@@ -238,7 +242,7 @@ async def upload_transcript(file: UploadFile = File(...)):
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    global active_ws, pending_action
+    global active_ws, pending_action, current_task
     await websocket.accept()
     active_ws = websocket  # Always use the latest connection
     try:
@@ -256,6 +260,40 @@ async def websocket_endpoint(websocket: WebSocket):
                     }))
                     continue
 
+                if msg_type == "cancel":
+                    if current_task and not current_task.done():
+                        current_task.cancel()
+                        current_task = None
+                    pending_action = {"type": None, "data": None, "course": None}
+                    await ws_send(json.dumps({"type": "status", "text": "Idle"}))
+                    await ws_send(json.dumps({"type": "agent_response", "text": "⛔ Stopped."}))
+                    continue
+
+                if msg_type == "set_course":
+                    # User picked a specific course for the pending academic action
+                    course_name = msg.get("course", "").strip()
+                    if pending_action["type"] == "academic" and course_name:
+                        pending_action["course"] = course_name
+                        await ws_send(json.dumps({
+                            "type": "course_confirmed",
+                            "course": course_name,
+                            "text": f'Course set to **{course_name}**. Shall I proceed with the study plan?'
+                        }))
+                    continue
+
+                if msg_type == "generate_cards_from_page":
+                    asyncio.create_task(handle_generate_cards(msg))
+                    continue
+
+                if msg_type == "study_mode_off":
+                    from study_mode_manager import toggle_study_mode
+                    toggle_study_mode(False)
+                    await ws_send(json.dumps({
+                        "type": "study_mode_inactive",
+                        "text": "Study mode disabled. Stay focused! 💪"
+                    }))
+                    continue
+
                 if msg_type == "quiz_complete":
                     asyncio.create_task(handle_quiz_complete(msg))
                     continue
@@ -264,6 +302,17 @@ async def websocket_endpoint(websocket: WebSocket):
                     question = msg.get("text", "")
                     context = msg.get("context", "")
                     asyncio.create_task(handle_study_qa(question, context))
+                    continue
+
+                if msg_type == "start_study_session":
+                    # Direct trigger from Study Mode page — no chat intent needed
+                    course = msg.get("course", "").strip()
+                    query = msg.get("query", "help me prepare for my upcoming exam").strip()
+                    if not course:
+                        await ws_send(json.dumps({"type": "agent_response", "text": "Please enter a course name to start a study session."}))
+                        continue
+                    pending_action = {"type": "academic", "data": query, "course": course}
+                    asyncio.create_task(handle_academic_confirm(pending_action))
                     continue
 
                 if msg_type == "user_message":
@@ -282,22 +331,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_send(json.dumps({"type": "agent_response", "text": plan}))
 
                     elif intent == "academic":
-                        pending_action = {"type": "academic", "data": text}
-                        plan = (
-                            "Action Plan Generated:\n"
-                            "1. Open Canvas (carmen.osu.edu) — you'll log in manually.\n"
-                            "2. Navigate to the relevant course and scrape content.\n"
-                            "3. Generate key concepts and study material via GPT-4o.\n"
-                            "4. Enter Study Mode with concept cards and Q&A.\n"
-                            "5. Take a 5-question quiz to test your knowledge.\n\n"
-                            "Shall I proceed?"
-                        )
-                        await ws_send(json.dumps({"type": "agent_response", "text": plan}))
+                        pending_action = {"type": "academic", "data": text, "course": None}
+                        # Try to extract a course name from the query right away
+                        await ws_send(json.dumps({
+                            "type": "course_picker",
+                            "text": "Action Plan Generated:\n1. Open Canvas (carmen.osu.edu) — you'll log in manually.\n2. Navigate to the relevant course and scrape content.\n3. Generate key concepts and study material via GPT-4o.\n4. Enter Study Mode with concept cards and Q&A.\n5. Take a 5-question quiz to test your knowledge.",
+                        }))
 
                     elif intent == "confirm":
                         if pending_action["type"] == "career":
                             pending_action_copy = dict(pending_action)
-                            pending_action = {"type": None, "data": None}
+                            pending_action = {"type": None, "data": None, "course": None}
                             await handle_career_confirm(pending_action_copy)
                         elif pending_action["type"] == "resume_choice":
                             pending_action_copy = dict(pending_action)
@@ -305,7 +349,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             asyncio.create_task(handle_resume_choice(pending_action_copy, use_tailored=True))
                         elif pending_action["type"] == "academic":
                             pending_action_copy = dict(pending_action)
-                            pending_action = {"type": None, "data": None}
+                            pending_action = {"type": None, "data": None, "course": None}
                             await handle_academic_confirm(pending_action_copy)
                         else:
                             await ws_send(json.dumps({
@@ -324,10 +368,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "text": "Okay! Let me know if there's anything else I can help with."
                             }))
 
+                    elif intent == "study_mode":
+                        asyncio.create_task(handle_study_mode_activate(text))
+
                     else:
                         await ws_send(json.dumps({
                             "type": "agent_response",
-                            "text": "I can help with **Career Execution** or **Academic Study**.\n\nTry saying:\n- \"Apply to SWE internships\"\n- \"I have an exam tomorrow\""
+                            "text": "I can help with **Career Execution**, **Academic Study**, or **Study Mode**.\n\nTry saying:\n- \"Apply to SWE internships\"\n- \"I have an exam tomorrow\"\n- \"Enter study mode\""
                         }))
 
             except json.JSONDecodeError:
@@ -429,11 +476,14 @@ async def handle_resume_choice(action: dict, use_tailored: bool):
 
 
 async def handle_academic_confirm(action: dict):
+    global current_task
     from academic_engine import run_academic_flow
     await ws_send(json.dumps({"type": "status", "text": "Executing"}))
-    await ws_send(json.dumps({"type": "agent_response", "text": "Starting academic sequence..."}))
+    course = action.get("course") or ""
     query = action.get("data", "")
-    asyncio.create_task(run_academic_flow(query, ws_send))
+    course_label = course or "your course"
+    await ws_send(json.dumps({"type": "agent_response", "text": f"Starting academic sequence for **{course_label}**..."}))
+    current_task = asyncio.create_task(run_academic_flow(query, ws_send, course_name=course))
 
 
 async def handle_quiz_complete(msg: dict):
@@ -455,6 +505,127 @@ async def handle_quiz_complete(msg: dict):
         "flashcard_questions": wrong_questions,
     }))
     await ws_send(json.dumps({"type": "status", "text": "Idle"}))
+
+
+async def handle_study_mode_activate(query: str):
+    """Enable study mode: block sites + fetch OSU resources."""
+    from study_mode_manager import toggle_study_mode, find_osu_study_resources, DISTRACTION_DOMAINS
+    toggle_study_mode(True)
+
+    # Detect subject from the query
+    subject = query
+    for kw in ["study mode", "focus mode", "i'm studying", "im studying", "block sites", "enter study mode", "start study mode"]:
+        subject = subject.lower().replace(kw, "").strip()
+
+    await ws_send(json.dumps({"type": "status", "text": "Study Mode"}))
+    await ws_send(json.dumps({
+        "type": "study_mode_active",
+        "blocked_count": len(DISTRACTION_DOMAINS),
+        "blocked_domains": DISTRACTION_DOMAINS,
+        "subject": subject,
+        "text": f"📚 Study Mode activated! Blocking {len(DISTRACTION_DOMAINS)} distracting sites. Stay focused!"
+    }))
+
+    # Fetch OSU resources asynchronously
+    resources = await find_osu_study_resources(subject)
+    await ws_send(json.dumps({
+        "type": "osu_resources",
+        "resources": resources,
+        "subject": subject,
+    }))
+
+
+async def handle_generate_cards(msg: dict):
+    """Generate Anki flashcards from RAG store (downloaded PDFs) + current page text."""
+    from study_mode_manager import generate_anki_cards
+    from rag import query_rag, storage as rag_storage
+    page_text = msg.get("page_text", "").strip()
+    subject = msg.get("subject", "")
+
+    # 1. Try RAG first — this contains all the Canvas PDFs the agent downloaded
+    rag_content = ""
+    if rag_storage:
+        rag_content = await query_rag(
+            f"key concepts, definitions, and topics for {subject} exam" if subject else "important concepts",
+            top_k=8
+        )
+
+    # 2. Combine RAG + live page text (RAG takes priority, page text fills gaps)
+    combined = ""
+    if rag_content.strip():
+        combined = rag_content
+        if page_text and len(page_text) > 200:
+            # Append page text as supplementary context, capped to avoid token overflow
+            combined += f"\n\n--- Additional page context ---\n{page_text[:2000]}"
+    else:
+        combined = page_text
+
+    if not combined.strip():
+        await ws_send(json.dumps({
+            "type": "agent_response",
+            "text": "No lecture material found yet. Use **Start a Study Session** to scrape your Canvas slides first, or navigate to a lecture page and click **Cards from page**."
+        }))
+        return
+
+    await ws_send(json.dumps({"type": "thought", "text": f"Generating flashcards from {'lecture slides + RAG' if rag_content else 'current page'}..."}))
+    cards = await generate_anki_cards(combined, subject)
+
+    if not cards:
+        await ws_send(json.dumps({
+            "type": "agent_response",
+            "text": "Couldn't generate flashcards from this content. Try navigating to a text-rich lecture page."
+        }))
+        return
+
+    await ws_send(json.dumps({
+        "type": "anki_cards",
+        "cards": cards,
+        "subject": subject,
+    }))
+
+    # 3. Also generate a dynamic study plan if we have RAG content
+    if rag_content.strip():
+        asyncio.create_task(handle_generate_study_plan(combined, subject))
+
+
+async def handle_generate_study_plan(content: str, subject: str):
+    """Generate an AI study plan from lecture content and broadcast it."""
+    try:
+        client = openai.AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        subject_hint = f' for **{subject}**' if subject else ''
+        prompt = f"""You are a study coach. Based on the following lecture material{subject_hint}, create a concise, actionable 5-step study plan the student should follow to prepare for their exam.
+
+Lecture material:
+{content[:6000]}
+
+Return ONLY a JSON array of exactly 5 steps, each with "step" (1-5) and "text" (one sentence, max 20 words, actionable):
+[{{"step": 1, "text": "..."}}, ...]"""
+
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content.strip()
+        parsed = json.loads(raw)
+        steps = []
+        if isinstance(parsed, list):
+            steps = parsed
+        elif isinstance(parsed, dict):
+            for v in parsed.values():
+                if isinstance(v, list):
+                    steps = v
+                    break
+
+        if steps:
+            await ws_send(json.dumps({
+                "type": "study_plan",
+                "steps": steps[:5],
+                "subject": subject,
+            }))
+    except Exception as e:
+        print(f"Study plan generation error: {e}")
 
 
 async def handle_study_qa(question: str, context: str):

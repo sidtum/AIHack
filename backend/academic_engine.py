@@ -9,8 +9,9 @@ from rag import clear_rag
 
 
 
-async def run_academic_flow(query: str, ws_broadcast):
+async def run_academic_flow(query: str, ws_broadcast, course_name: str = ""):
     """Full academic flow: Canvas -> scrape -> generate study material -> send to frontend."""
+    course_label = course_name.strip() if course_name.strip() else "CSE 3244"
     try:
         clear_rag()
         await ws_broadcast(json.dumps({"type": "status", "text": "Accessing Canvas..."}))
@@ -19,12 +20,12 @@ async def run_academic_flow(query: str, ws_broadcast):
             "text": "Opening carmen.osu.edu — Canvas session already saved."
         }))
 
-        scraped_content = await scrape_canvas(query, ws_broadcast)
+        scraped_content = await scrape_canvas(query, ws_broadcast, course_label=course_label)
 
         if not scraped_content:
             await ws_broadcast(json.dumps({
                 "type": "agent_response",
-                "text": "I couldn't access Canvas. Please make sure you're logged in to Canvas in the browser pane, then try again."
+                "text": "I couldn't access Canvas or extract any content. Make sure you're logged in to Carmen in the browser pane, then try again."
             }))
             await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
             return
@@ -63,6 +64,72 @@ async def run_academic_flow(query: str, ws_broadcast):
             "content_raw": scraped_content[:5000],
         }))
 
+        # Auto-generate flashcards, OSU resources, and study plan IN PARALLEL
+        try:
+            from study_mode_manager import generate_anki_cards, find_osu_study_resources
+            from rag import add_to_rag
+            import openai as _openai
+            import os as _os
+
+            # Kick off RAG embedding in background (doesn't need to block cards)
+            asyncio.create_task(add_to_rag(scraped_content, material["course_name"]))
+
+            await ws_broadcast(json.dumps({"type": "thought", "text": "Generating flashcards and study plan in parallel..."}))
+
+            # Study plan helper (inline so we can await it in gather)
+            async def _make_study_plan():
+                try:
+                    _client = _openai.AsyncOpenAI(api_key=_os.environ.get("OPENAI_API_KEY"))
+                    _subject = material["course_name"]
+                    _prompt = f"""You are a study coach. Based on the following lecture material for {_subject}, create a concise, actionable 5-step study plan.
+
+Lecture material:
+{scraped_content[:5000]}
+
+Return ONLY a JSON object with key "steps" containing an array of exactly 5 steps, each with "step" (1-5) and "text" (one sentence, max 20 words, actionable):
+{{"steps": [{{"step": 1, "text": "..."}}, ...]}}"""
+                    _resp = await _client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "user", "content": _prompt}],
+                        temperature=0.3,
+                        response_format={"type": "json_object"},
+                    )
+                    import json as _json
+                    _parsed = _json.loads(_resp.choices[0].message.content.strip())
+                    _steps = _parsed.get("steps", [])
+                    if _steps:
+                        await ws_broadcast(_json.dumps({
+                            "type": "study_plan",
+                            "steps": _steps[:5],
+                            "subject": _subject,
+                        }))
+                except Exception as _e:
+                    print(f"Study plan generation error: {_e}")
+
+            # Run all three concurrently
+            cards, resources, _ = await asyncio.gather(
+                generate_anki_cards(scraped_content[:8000], material["course_name"]),
+                find_osu_study_resources(material["course_name"]),
+                _make_study_plan(),
+                return_exceptions=True,
+            )
+
+            if isinstance(cards, list) and cards:
+                await ws_broadcast(json.dumps({
+                    "type": "anki_cards",
+                    "cards": cards,
+                    "subject": material["course_name"],
+                }))
+
+            if isinstance(resources, list) and resources:
+                await ws_broadcast(json.dumps({
+                    "type": "osu_resources",
+                    "resources": resources,
+                }))
+
+        except Exception as card_err:
+            print(f"Auto card/plan generation error: {card_err}")
+
         await ws_broadcast(json.dumps({"type": "status", "text": "Study Mode"}))
 
     except asyncio.CancelledError:
@@ -75,7 +142,7 @@ async def run_academic_flow(query: str, ws_broadcast):
         await ws_broadcast(json.dumps({"type": "status", "text": "Idle"}))
 
 
-async def scrape_canvas(query: str, ws_broadcast) -> str:
+async def scrape_canvas(query: str, ws_broadcast, course_label: str = "CSE 3244") -> str:
     """Use browser-use to navigate Canvas and scrape course content.
     Connects to the embedded Electron WebContentsView via CDP."""
     try:
@@ -304,17 +371,14 @@ async def scrape_canvas(query: str, ws_broadcast) -> str:
         model = os.environ.get("OPENAI_ACADEMIC_MODEL", "gpt-4o")
         llm = ChatOpenAI(model=model, api_key=os.environ.get("OPENAI_API_KEY"))
 
-        task_prompt = f"""You are helping an OSU student prep for their CSE 3244 exam. Goal: "{query}"
+        task_prompt = f"""You are helping an OSU student prep for their {course_label} exam. Goal: "{query}"
 
 The Canvas dashboard is already open and the student is logged in. Do NOT navigate to any new page — start directly from what is on screen:
 
-1. Find and click the CSE 3244 course card on the dashboard.
-2. You will land on the Syllabus page. Call extract_syllabus — there is a "Tentative Schedule" table listing lecture topics for rows 1–12 before Lecture 13 (midterm).
+1. Find and click the {course_label} course card on the dashboard.
+2. You will land on the Syllabus page. Call extract_syllabus — look for a schedule table listing lecture topics.
 3. Click "Files" in the left sidebar, then click the "Lecture Slides" folder.
-4. The files will be visible in the folder listing. Do NOT use the search bar. Call the download_canvas_file tool three times, providing the 'filename' parameter as follows:
-   - filename: "L2-CSE3244-cloud-pros-cons.pdf"
-   - filename: "L2-CSE3244.pdf"
-   - filename: "L3-MapReduce-1-v3.cs.pdf"
+4. Download the most relevant lecture slide files for the upcoming exam using the download_canvas_file tool.
 5. Return a summary of: exam topics from the schedule + which files were downloaded.
 
 Stop immediately if you see a login form — call done(success=False, message="Canvas login required")."""
@@ -373,9 +437,16 @@ Stop immediately if you see a login form — call done(success=False, message="C
 
         return content
 
+    except asyncio.CancelledError:
+        raise  # Let cancellations propagate
     except Exception as e:
+        err_msg = str(e)
         await ws_broadcast(json.dumps({
             "type": "thought",
-            "text": f"Canvas scraping failed: {str(e)}. Using fallback."
+            "text": f"Canvas scraping error: {err_msg[:300]}"
+        }))
+        await ws_broadcast(json.dumps({
+            "type": "agent_response",
+            "text": f"Canvas automation error: {err_msg[:200]}\n\nMake sure Carmen is open and you're logged in, then try again."
         }))
         return ""

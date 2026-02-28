@@ -67,3 +67,8 @@ body::after {
   animation: grain 0.4s steps(1) infinite;
   /* rapid frame-skip = film grain feel */
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

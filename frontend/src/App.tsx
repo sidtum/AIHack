@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, ArrowUp, Minus, X, SlidersHorizontal, ChevronRight, Volume2, VolumeX, Maximize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Mic, ArrowUp, Minus, X, SlidersHorizontal, ChevronRight, Volume2, VolumeX, Maximize2, PanelLeftClose, PanelLeftOpen, Square, BookOpen } from 'lucide-react';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { QuizView } from './components/QuizView';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -10,11 +10,12 @@ import { AgentBrowser } from './components/AgentBrowser';
 import { CareerDashboard } from './components/CareerDashboard';
 import { NotesDashboard } from './components/NotesDashboard';
 import { SmsBadge } from './components/SmsBadge';
+import { StudyModePage } from './components/StudyModePage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useTTS } from './hooks/useTTS';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type AppMode = 'chat' | 'study' | 'quiz' | 'results';
+type AppMode = 'chat' | 'study' | 'quiz' | 'results' | 'study_mode';
 
 interface Message {
   role: 'user' | 'agent';
@@ -181,12 +182,23 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isAITyping, setIsAITyping] = useState(false);
 
-  // Mode state machine: chat -> study -> quiz -> results -> chat
   const [mode, setMode] = useState<AppMode>('chat');
   const [studyData, setStudyData] = useState<StudyData | null>(null);
   const [quizData, setQuizData] = useState<any>(null);
   const [studyResults, setStudyResults] = useState<StudyResultsData | null>(null);
   const [qaMessages, setQaMessages] = useState<{ role: 'user' | 'agent'; text: string }[]>([]);
+
+  // ── Study mode state ──
+  const [ankiCards, setAnkiCards] = useState<{ front: string; back: string }[]>([]);
+  const [osuResources, setOsuResources] = useState<{ title: string; url: string; tag: string }[]>([]);
+  const [isGeneratingCards, setIsGeneratingCards] = useState(false);
+  const [studySubject, setStudySubject] = useState('');
+  const [studyPlan, setStudyPlan] = useState<{ step: number; text: string }[]>([]);
+
+  // ── Course picker state ──
+  const [showCoursePicker, setShowCoursePicker] = useState(false);
+  const [courseInput, setCourseInput] = useState('');
+  const [pendingPlanText, setPendingPlanText] = useState('');
 
   const ws = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -312,7 +324,12 @@ function App() {
               questions: d.questions,
               content_raw: d.content_raw,
             });
-            setMode('study');
+            // If we're already in Study Mode (launched from LauncherCard), stay there —
+            // the flashcards will come via anki_cards messages. Only switch to quiz view
+            // if we're coming from the regular chat flow.
+            setMode(m => m === 'study_mode' ? 'study_mode' : 'study');
+            // Also populate the subject label from the scraped course name
+            if (d.course_name) setStudySubject(prev => prev || d.course_name);
           }
           else if (d.type === 'quiz_start') {
             setIsAITyping(false);
@@ -335,6 +352,44 @@ function App() {
           }
           else if (d.type === 'study_qa_response') {
             setQaMessages(p => [...p, { role: 'agent', text: d.text }]);
+          }
+          else if (d.type === 'study_mode_active') {
+            setMode('study_mode');
+            setStudySubject(d.subject || '');
+            // Tell Electron to start blocking sites
+            const ipc2 = (window as any).require?.('electron')?.ipcRenderer;
+            ipc2?.send('enable-site-blocking');
+            setMessages(p => [...p, { role: 'agent', text: d.text }]);
+          }
+          else if (d.type === 'study_mode_inactive') {
+            setAnkiCards([]);
+            setOsuResources([]);
+            setStudyPlan([]);
+            setMode(m => m === 'study_mode' ? 'chat' : m);
+            // Tell Electron to stop blocking sites
+            const ipc2 = (window as any).require?.('electron')?.ipcRenderer;
+            ipc2?.send('disable-site-blocking');
+            setMessages(p => [...p, { role: 'agent', text: d.text }]);
+          }
+          else if (d.type === 'anki_cards') {
+            setIsGeneratingCards(false);
+            setAnkiCards(d.cards || []);
+          }
+          else if (d.type === 'osu_resources') {
+            setOsuResources(d.resources || []);
+          }
+          else if (d.type === 'study_plan') {
+            setStudyPlan(d.steps || []);
+          }
+          else if (d.type === 'course_picker') {
+            setIsAITyping(false);
+            setPendingPlanText(d.text || '');
+            setShowCoursePicker(true);
+            setCourseInput('');
+          }
+          else if (d.type === 'course_confirmed') {
+            setShowCoursePicker(false);
+            setMessages(p => [...p, { role: 'agent', text: d.text }]);
           }
         } catch {
           setIsAITyping(false);
@@ -409,6 +464,42 @@ function App() {
     setStudyResults(null);
     setQaMessages([]);
   };
+
+  const handleDisableStudyMode = useCallback(() => {
+    wsSend({ type: 'study_mode_off' });
+    setMode('chat');
+  }, [wsSend]);
+
+  const handleStop = useCallback(() => {
+    wsSend({ type: 'cancel' });
+    setIsAITyping(false);
+    setShowCoursePicker(false);
+  }, [wsSend]);
+
+  const handleSubmitCourse = useCallback(() => {
+    const course = courseInput.trim();
+    if (!course) return;
+    wsSend({ type: 'set_course', course });
+  }, [wsSend, courseInput]);
+
+  const handleConfirmAfterCourse = useCallback(() => {
+    wsSend({ type: 'user_message', text: 'yes' });
+    setShowCoursePicker(false);
+  }, [wsSend]);
+
+  const handleGenerateCards = useCallback(async () => {
+    setIsGeneratingCards(true);
+    try {
+      const ipc2 = (window as any).require?.('electron')?.ipcRenderer;
+      let pageText = '';
+      if (ipc2) {
+        pageText = await ipc2.invoke('get-page-text') || '';
+      }
+      wsSend({ type: 'generate_cards_from_page', page_text: pageText, subject: studySubject });
+    } catch {
+      setIsGeneratingCards(false);
+    }
+  }, [wsSend, studySubject]);
 
   const handleExitQuiz = () => {
     if (studyData) {
@@ -570,6 +661,59 @@ function App() {
             <span style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: `${sc}cc`, fontWeight: 500, fontFamily: 'monospace', transition: 'color 0.5s' }}>
               {statusText}
             </span>
+            {/* Stop button — visible while agent is running */}
+            <AnimatePresence>
+              {(isAITyping || status === 'executing') && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.08, background: 'rgba(255,80,80,0.18)', color: '#ff8080' }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleStop}
+                  title="Stop"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'rgba(255,80,80,0.1)',
+                    border: '1px solid rgba(255,80,80,0.25)',
+                    borderRadius: 8, padding: '3px 8px',
+                    cursor: 'pointer', color: 'rgba(255,140,130,0.8)',
+                    fontSize: 10, fontWeight: 500,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Square size={9} />
+                  <span>Stop</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            {/* ── Study Mode toggle switch ── */}
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6, cursor: 'pointer', ...({ WebkitAppRegion: 'no-drag' } as any) }}
+              onClick={() => setMode(mode === 'study_mode' ? 'chat' : 'study_mode')}
+              title={mode === 'study_mode' ? 'Exit Study Mode' : 'Enter Study Mode'}
+            >
+              <span style={{ fontSize: 9.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: mode === 'study_mode' ? 'rgba(240,180,60,0.9)' : 'rgba(255,255,255,0.25)', fontWeight: 500, transition: 'color 0.25s' }}>Study</span>
+              <div style={{
+                width: 30, height: 17, borderRadius: 9,
+                background: mode === 'study_mode' ? 'rgba(240,180,60,0.55)' : 'rgba(255,255,255,0.1)',
+                border: `1px solid ${mode === 'study_mode' ? 'rgba(240,180,60,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                position: 'relative', transition: 'background 0.25s, border 0.25s',
+                boxShadow: mode === 'study_mode' ? '0 0 10px rgba(240,180,60,0.3)' : 'none',
+              }}>
+                <motion.div
+                  animate={{ x: mode === 'study_mode' ? 13 : 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  style={{
+                    position: 'absolute', top: 2, width: 11, height: 11, borderRadius: '50%',
+                    background: mode === 'study_mode' ? '#f0c050' : 'rgba(255,255,255,0.4)',
+                    boxShadow: mode === 'study_mode' ? '0 0 6px rgba(240,180,60,0.7)' : 'none',
+                    transition: 'background 0.25s',
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           <div style={{ width: 1, height: 16, background: 'rgba(255,240,150,0.12)' }} />
@@ -609,15 +753,15 @@ function App() {
             overflow: 'hidden',
           }}
         >
-          {/* Sidebar toggle button — always visible */}
-          <div style={{ padding: '8px 8px 4px', display: 'flex', justifyContent: sidebarOpen ? 'flex-end' : 'center', flexShrink: 0 }}>
+          {/* Sidebar top bar — collapse toggle only */}
+          <div style={{ padding: '8px 8px 4px', display: 'flex', alignItems: 'center', justifyContent: sidebarOpen ? 'flex-end' : 'center', flexShrink: 0 }}>
             <button
               onClick={() => setSidebarOpen(o => !o)}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'rgba(255,240,170,0.4)', width: 28, height: 28, borderRadius: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'color 0.2s',
+                transition: 'color 0.2s', flexShrink: 0,
               }}
               onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,240,170,0.8)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,240,170,0.4)')}
@@ -645,6 +789,13 @@ function App() {
                 style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: isTTSEnabled ? '#6ee7a0' : 'rgba(255,240,170,0.3)', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 {isTTSEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              </button>
+              <button
+                onClick={() => setMode('study_mode')}
+                title="Study Sessions"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(240,180,60,0.5)', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <BookOpen size={14} />
               </button>
             </div>
           )}
@@ -732,7 +883,7 @@ function App() {
                         </motion.div>
 
                         <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                          {['"Apply to relevant internships"', '"I have an exam tomorrow"'].map(chip => (
+                          {['"Apply to relevant internships"', '"I have an exam tomorrow"', '"Enter study mode"'].map(chip => (
                             <motion.button
                               key={chip}
                               whileHover={{ scale: 1.03, background: 'rgba(240,180,60,0.12)' }}
@@ -754,6 +905,23 @@ function App() {
                               {chip}
                             </motion.button>
                           ))}
+                          <motion.button
+                            whileHover={{ scale: 1.03, background: 'rgba(240,180,60,0.12)' }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => setMode('study_mode')}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              background: 'rgba(255,240,180,0.06)',
+                              border: '1px solid rgba(240,180,60,0.2)',
+                              borderRadius: 40, padding: '7px 14px',
+                              fontSize: 12, color: 'rgba(255,230,160,0.7)',
+                              cursor: 'pointer', transition: 'all 0.2s',
+                              fontFamily: "'DM Sans', sans-serif",
+                            }}
+                          >
+                            <BookOpen size={12} />
+                            <span>View saved study sessions</span>
+                          </motion.button>
                         </div>
                       </motion.div>
                     )}
@@ -827,6 +995,98 @@ function App() {
                   </AnimatePresence>
 
                   <div ref={bottomRef} />
+
+                  {/* ── Course Picker Card ── */}
+                  <AnimatePresence>
+                    {showCoursePicker && (
+                      <motion.div
+                        key="course-picker"
+                        initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                        style={{ alignSelf: 'flex-start', width: '100%', maxWidth: '88%' }}
+                      >
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,200,100,0.55)', marginBottom: 5, paddingLeft: 4, fontWeight: 400 }}>SAYAM</p>
+                        <div style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '5px 20px 20px 20px',
+                          backdropFilter: 'blur(16px)',
+                          padding: '16px 18px',
+                          display: 'flex', flexDirection: 'column', gap: 12,
+                        }}>
+                          {/* Plan preview */}
+                          <pre style={{ margin: 0, fontSize: 12, color: '#cce0d8', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: "'DM Sans', sans-serif" }}>
+                            {pendingPlanText}
+                          </pre>
+
+                          {/* Divider */}
+                          <div style={{ height: 1, background: 'rgba(240,180,60,0.15)' }} />
+
+                          {/* Course input */}
+                          <div>
+                            <p style={{ fontSize: 11, color: 'rgba(240,200,100,0.7)', marginBottom: 8, fontWeight: 500 }}>Which course are you studying for?</p>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <input
+                                autoFocus
+                                value={courseInput}
+                                onChange={e => setCourseInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && courseInput.trim() && handleSubmitCourse()}
+                                placeholder="e.g. CSE 2421, MATH 1151..."
+                                style={{
+                                  flex: 1,
+                                  background: 'rgba(255,255,255,0.07)',
+                                  border: '1px solid rgba(240,180,60,0.25)',
+                                  borderRadius: 10, padding: '7px 12px',
+                                  fontSize: 12, color: '#f0e8d0',
+                                  outline: 'none', fontFamily: "'DM Sans', sans-serif",
+                                }}
+                              />
+                              <motion.button
+                                whileHover={{ scale: 1.04 }}
+                                whileTap={{ scale: 0.96 }}
+                                onClick={handleSubmitCourse}
+                                disabled={!courseInput.trim()}
+                                style={{
+                                  background: courseInput.trim() ? 'linear-gradient(135deg, #d4a030, #a07020)' : 'rgba(255,255,255,0.07)',
+                                  border: 'none', borderRadius: 10, padding: '7px 14px',
+                                  color: courseInput.trim() ? '#fff8e0' : 'rgba(255,240,180,0.3)',
+                                  fontSize: 12, fontWeight: 500, cursor: courseInput.trim() ? 'pointer' : 'default',
+                                  transition: 'all 0.2s',
+                                }}
+                              >Set</motion.button>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={handleStop}
+                              style={{
+                                background: 'transparent', border: '1px solid rgba(255,80,80,0.2)',
+                                borderRadius: 10, padding: '6px 14px', fontSize: 11,
+                                color: 'rgba(255,140,130,0.65)', cursor: 'pointer',
+                              }}
+                            >Cancel</motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={handleConfirmAfterCourse}
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(200,150,40,0.35), rgba(150,110,30,0.25))',
+                                border: '1px solid rgba(240,180,60,0.3)',
+                                borderRadius: 10, padding: '6px 16px', fontSize: 11,
+                                color: '#ffe8b0', cursor: 'pointer', fontWeight: 500,
+                              }}
+                            >Proceed →</motion.button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* ── GRADIENT DIVIDER ── */}
@@ -921,29 +1181,49 @@ function App() {
           </AnimatePresence>
         </motion.div>
 
-        {/* ── RIGHT PANE — browser + career dashboard overlay (chat sidebar stays visible) ── */}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {!showOnboarding && (
-            <AgentBrowser
-              navigateRef={browserNavigateRef}
-              forceUpdateRef={browserForceUpdateRef}
-              onOpenCareerDashboard={() => setIsCareerDashboardOpen(true)}
-              onOpenNotesDashboard={() => setIsNotesDashboardOpen(true)}
+        {/* ── RIGHT PANE — browser + study mode page + career/notes dashboards ── */}
+        {!showOnboarding && (
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {/* Study Mode Full Page — sits above the browser when active */}
+            <AnimatePresence>
+              {mode === 'study_mode' && (
+                <StudyModePage
+                  blockedCount={11}
+                  subject={studySubject}
+                  ankiCards={ankiCards}
+                  osuResources={osuResources}
+                  isGeneratingCards={isGeneratingCards}
+                  onDisable={handleDisableStudyMode}
+                  onGenerateCards={handleGenerateCards}
+                  wsSend={wsSend}
+                  studyPlan={studyPlan}
+                />
+              )}
+            </AnimatePresence>
+            {/* AgentBrowser — hidden visually during study_mode but kept mounted */}
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', visibility: mode === 'study_mode' ? 'hidden' : 'visible', position: mode === 'study_mode' ? 'absolute' : 'relative', width: '100%', height: '100%' }}>
+              <AgentBrowser
+                navigateRef={browserNavigateRef}
+                forceUpdateRef={browserForceUpdateRef}
+                onOpenCareerDashboard={() => setIsCareerDashboardOpen(true)}
+                onOpenNotesDashboard={() => setIsNotesDashboardOpen(true)}
+              />
+            </div>
+            {/* Career & Notes dashboard overlays */}
+            <CareerDashboard
+              isOpen={isCareerDashboardOpen}
+              onClose={() => setIsCareerDashboardOpen(false)}
             />
-          )}
-          <CareerDashboard
-            isOpen={isCareerDashboardOpen}
-            onClose={() => setIsCareerDashboardOpen(false)}
-          />
-          <NotesDashboard
-            isOpen={isNotesDashboardOpen}
-            onClose={() => setIsNotesDashboardOpen(false)}
-          />
-        </div>
+            <NotesDashboard
+              isOpen={isNotesDashboardOpen}
+              onClose={() => setIsNotesDashboardOpen(false)}
+            />
+          </div>
+        )}
 
         {/* ── STUDY OVERLAY (covers only content area — header stays visible) ── */}
         <AnimatePresence>
-          {mode !== 'chat' && (
+          {(mode !== 'chat' && mode !== 'study_mode') && (
             <motion.div
               key="study-overlay"
               initial={{ opacity: 0 }}
@@ -956,35 +1236,35 @@ function App() {
                 background: 'linear-gradient(150deg, #0e3535 0%, #123030 18%, #152840 45%, #101828 72%, #0c1220 100%)',
               }}
             >
-            {mode === 'study' && studyData && (
-              <StudyPanel
-                fullScreen
-                courseName={studyData.course_name}
-                concepts={studyData.concepts}
-                qaMessages={qaMessages}
-                onStartQuiz={handleStartQuiz}
-                onBack={handleExitToChat}
-                onSendQA={(question: string) => {
-                  setQaMessages(p => [...p, { role: 'user', text: question }]);
-                  wsSend({ type: 'study_qa', text: question, context: studyData.content_raw });
-                }}
-              />
-            )}
-            {mode === 'quiz' && quizData && (
-              <QuizView
-                fullScreen
-                data={quizData}
-                onClose={handleExitQuiz}
-                onQuizComplete={handleQuizComplete}
-              />
-            )}
-            {mode === 'results' && studyResults && (
-              <StudyResults
-                fullScreen
-                data={studyResults}
-                onClose={handleExitToChat}
-              />
-            )}
+              {mode === 'study' && studyData && (
+                <StudyPanel
+                  fullScreen
+                  courseName={studyData.course_name}
+                  concepts={studyData.concepts}
+                  qaMessages={qaMessages}
+                  onStartQuiz={handleStartQuiz}
+                  onBack={handleExitToChat}
+                  onSendQA={(question: string) => {
+                    setQaMessages(p => [...p, { role: 'user', text: question }]);
+                    wsSend({ type: 'study_qa', text: question, context: studyData.content_raw });
+                  }}
+                />
+              )}
+              {mode === 'quiz' && quizData && (
+                <QuizView
+                  fullScreen
+                  data={quizData}
+                  onClose={handleExitQuiz}
+                  onQuizComplete={handleQuizComplete}
+                />
+              )}
+              {mode === 'results' && studyResults && (
+                <StudyResults
+                  fullScreen
+                  data={studyResults}
+                  onClose={handleExitToChat}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
