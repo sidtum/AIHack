@@ -13,16 +13,21 @@
     "build:app": "npm run build && electron-builder"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "framer-motion": "^12.4.3",
     "lucide-react": "^0.475.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "ogl": "^1.0.11",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "three": "^0.183.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
     "@tailwindcss/vite": "^4.2.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.2.1",

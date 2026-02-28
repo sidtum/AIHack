@@ -1,28 +1,102 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 interface AgentBrowserProps {
   navigateRef?: React.MutableRefObject<((url: string) => void) | null>;
   forceUpdateRef?: React.MutableRefObject<(() => void) | null>;
-  onOpenCareerDashboard?: () => void;
-  onOpenNotesDashboard?: () => void;
 }
 
-export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboard, onOpenNotesDashboard }: AgentBrowserProps) {
+const C = {
+  bg: '#0E1522',
+  barBg: 'rgba(10, 15, 28, 0.92)',
+  accent: '#D4AF6C',
+  teal: '#89CEC2',
+  textPrimary: '#F5EDD8',
+  textDim: 'rgba(245, 237, 216, 0.35)',
+  borderGold: 'rgba(212, 175, 108, 0.12)',
+  borderGlass: 'rgba(245, 237, 216, 0.07)',
+};
+
+function NavBtn({
+  onClick,
+  disabled,
+  children,
+  title,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        background: h && !disabled ? 'rgba(212, 175, 108, 0.08)' : 'transparent',
+        border: 'none', cursor: disabled ? 'default' : 'pointer',
+        color: disabled ? 'rgba(245, 237, 216, 0.18)' : h ? C.accent : 'rgba(245, 237, 216, 0.45)',
+        width: 30, height: 30, borderRadius: 8,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s', flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function QuickChip({
+  label,
+  onClick,
+  color,
+}: {
+  label: string;
+  onClick: () => void;
+  color: string;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        background: h ? `rgba(${color}, 0.15)` : `rgba(${color}, 0.07)`,
+        border: `1px solid rgba(${color}, ${h ? '0.3' : '0.18'})`,
+        borderRadius: 6, padding: '3px 9px',
+        fontSize: 10, color: `rgba(${color}, ${h ? '0.9' : '0.65'})`,
+        cursor: 'pointer',
+        fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 500, letterSpacing: '0.08em',
+        flexShrink: 0, whiteSpace: 'nowrap',
+        textTransform: 'uppercase',
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function AgentBrowser({ navigateRef, forceUpdateRef }: AgentBrowserProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inputUrl, setInputUrl] = useState('https://www.google.com');
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [urlFocused, setUrlFocused] = useState(false);
 
-  // Safely get electron ipcRenderer (won't crash in standard browser)
   const ipcRenderer = typeof window !== 'undefined' ? (window as any).require?.('electron')?.ipcRenderer : null;
 
   // Wire up main process events
   useEffect(() => {
     if (!ipcRenderer) return;
-
     const onNavUpdate = (_: any, data: any) => {
       setInputUrl(data.url);
       setCanGoBack(data.canGoBack);
@@ -30,11 +104,9 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
     };
     const onLoadingStart = () => setIsLoading(true);
     const onLoadingStop = () => setIsLoading(false);
-
     ipcRenderer.on('browser-nav-update', onNavUpdate);
     ipcRenderer.on('browser-loading-start', onLoadingStart);
     ipcRenderer.on('browser-loading-stop', onLoadingStop);
-
     return () => {
       ipcRenderer.removeListener('browser-nav-update', onNavUpdate);
       ipcRenderer.removeListener('browser-loading-start', onLoadingStart);
@@ -50,7 +122,7 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
     return () => { if (navigateRef) navigateRef.current = null; };
   }, [navigateRef, ipcRenderer]);
 
-  // Expose a method to force-resend current bounds (used to restore browser after overlay hides it)
+  // Expose force-resend bounds
   useEffect(() => {
     if (!forceUpdateRef) return;
     forceUpdateRef.current = () => {
@@ -66,10 +138,9 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
     return () => { if (forceUpdateRef) forceUpdateRef.current = null; };
   }, [forceUpdateRef, ipcRenderer]);
 
-  // Report dimension changes to main.js so WebContentsView can track this div's bounds perfectly
+  // Report dimension changes
   useEffect(() => {
     if (!ipcRenderer || !containerRef.current) return;
-
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const rect = entry.target.getBoundingClientRect();
@@ -77,11 +148,10 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
           x: Math.round(rect.x),
           y: Math.round(rect.y),
           width: Math.round(rect.width),
-          height: Math.round(rect.height)
+          height: Math.round(rect.height),
         });
       }
     });
-
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [ipcRenderer]);
@@ -97,142 +167,99 @@ export function AgentBrowser({ navigateRef, forceUpdateRef, onOpenCareerDashboar
 
   return (
     <div style={{
-      flex: 1,
-      minHeight: 0,
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'rgba(6,12,12,0.6)',
-      boxShadow: 'inset 0 0 0 1.5px rgba(240,180,60,0.3)',
+      flex: 1, minHeight: 0, minWidth: 0,
+      display: 'flex', flexDirection: 'column',
+      background: 'rgba(8, 12, 22, 0.7)',
       overflow: 'hidden',
     }}>
-      {/* URL Bar */}
+      {/* ── URL / NAV BAR ── */}
       <div style={{
-        height: 48,
-        padding: '0 12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        background: 'rgba(0,0,0,0.45)',
-        borderBottom: '1px solid rgba(240,180,60,0.2)',
-        boxShadow: 'inset 14px 0 28px rgba(0,0,0,0.5)',
+        height: 46,
+        padding: '0 10px',
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: C.barBg,
+        borderBottom: `1px solid ${C.borderGold}`,
+        backdropFilter: 'blur(20px)',
         flexShrink: 0,
         position: 'relative',
-
-        // This prevents WebContentsView clicks from passing through empty UI regions
-        ...({ WebkitAppRegion: 'no-drag' } as any)
+        ...({ WebkitAppRegion: 'no-drag' } as any),
       }}>
-        <button onClick={() => ipcRenderer?.send('browser-go-back')} disabled={!canGoBack} style={{
-          background: 'transparent', border: 'none',
-          cursor: canGoBack ? 'pointer' : 'default',
-          color: canGoBack ? 'rgba(255,240,170,0.7)' : 'rgba(255,240,170,0.2)',
-          width: 28, height: 28, borderRadius: 6,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <ChevronLeft size={16} />
-        </button>
+        {/* Back / Forward / Reload */}
+        <NavBtn onClick={() => ipcRenderer?.send('browser-go-back')} disabled={!canGoBack} title="Back">
+          <ChevronLeft size={15} />
+        </NavBtn>
+        <NavBtn onClick={() => ipcRenderer?.send('browser-go-forward')} disabled={!canGoForward} title="Forward">
+          <ChevronRight size={15} />
+        </NavBtn>
+        <NavBtn onClick={() => ipcRenderer?.send(isLoading ? 'browser-stop' : 'browser-reload')} title={isLoading ? 'Stop' : 'Reload'}>
+          {isLoading
+            ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><RotateCcw size={13} /></motion.div>
+            : <RotateCcw size={13} />}
+        </NavBtn>
 
-        <button onClick={() => ipcRenderer?.send('browser-go-forward')} disabled={!canGoForward} style={{
-          background: 'transparent', border: 'none',
-          cursor: canGoForward ? 'pointer' : 'default',
-          color: canGoForward ? 'rgba(255,240,170,0.7)' : 'rgba(255,240,170,0.2)',
-          width: 28, height: 28, borderRadius: 6,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <ChevronRight size={16} />
-        </button>
+        {/* Thin separator */}
+        <div style={{ width: 1, height: 16, background: C.borderGold, flexShrink: 0 }} />
 
-        <button onClick={() => ipcRenderer?.send(isLoading ? 'browser-stop' : 'browser-reload')} style={{
-          background: 'transparent', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,240,170,0.5)',
-          width: 28, height: 28, borderRadius: 6,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          {isLoading ? <X size={14} /> : <RotateCcw size={14} />}
-        </button>
+        {/* Quick nav chips */}
+        <QuickChip label="Carmen" onClick={() => navigate('https://carmen.osu.edu')} color="212, 175, 108" />
 
-        <button
-          onClick={() => navigate('https://carmen.osu.edu')}
-          title="Go to Carmen"
+        {/* URL input */}
+        <motion.div
+          animate={{
+            boxShadow: urlFocused
+              ? '0 0 0 1.5px rgba(212, 175, 108, 0.25), 0 2px 12px rgba(0,0,0,0.3)'
+              : 'none',
+          }}
           style={{
-            background: 'rgba(240,180,60,0.1)',
-            border: '1px solid rgba(240,180,60,0.22)',
-            borderRadius: 6, padding: '3px 8px',
-            fontSize: 10, color: 'rgba(240,200,100,0.7)',
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500, letterSpacing: '0.08em',
-            flexShrink: 0, whiteSpace: 'nowrap',
-            textTransform: 'uppercase',
+            flex: 1,
+            borderRadius: 10,
+            border: `1px solid ${urlFocused ? 'rgba(212, 175, 108, 0.25)' : C.borderGlass}`,
+            background: urlFocused ? 'rgba(26, 34, 56, 0.8)' : 'rgba(245, 237, 216, 0.04)',
+            transition: 'border-color 0.2s, background 0.2s',
+            overflow: 'hidden',
           }}
         >
-          Carmen
-        </button>
+          <input
+            value={inputUrl}
+            onChange={e => setInputUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && navigate(inputUrl)}
+            onFocus={e => { setUrlFocused(true); e.target.select(); }}
+            onBlur={() => setUrlFocused(false)}
+            placeholder="Enter URL or search…"
+            style={{
+              width: '100%',
+              background: 'transparent',
+              border: 'none', outline: 'none',
+              padding: '6px 12px',
+              fontSize: 12,
+              color: urlFocused ? C.textPrimary : 'rgba(245, 237, 216, 0.5)',
+              fontFamily: "'DM Sans', sans-serif",
+              letterSpacing: '0.01em',
+            }}
+          />
+        </motion.div>
 
-        <button
-          onClick={onOpenCareerDashboard}
-          title="Open Career Dashboard"
-          style={{
-            background: 'rgba(80,200,150,0.08)',
-            border: '1px solid rgba(80,200,150,0.22)',
-            borderRadius: 6, padding: '3px 8px',
-            fontSize: 10, color: 'rgba(100,230,170,0.7)',
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500, letterSpacing: '0.08em',
-            flexShrink: 0, whiteSpace: 'nowrap',
-            textTransform: 'uppercase',
-          }}
-        >
-          Career
-        </button>
-
-        <button
-          onClick={onOpenNotesDashboard}
-          title="Open Notes Dashboard"
-          style={{
-            background: 'rgba(150,100,255,0.08)',
-            border: '1px solid rgba(150,100,255,0.22)',
-            borderRadius: 6, padding: '3px 8px',
-            fontSize: 10, color: 'rgba(180,140,255,0.8)',
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500, letterSpacing: '0.08em',
-            flexShrink: 0, whiteSpace: 'nowrap',
-            textTransform: 'uppercase',
-          }}
-        >
-          Notes
-        </button>
-
-        <input
-          value={inputUrl}
-          onChange={e => setInputUrl(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && navigate(inputUrl)}
-          onFocus={e => e.target.select()}
-          placeholder="Enter URL..."
-          style={{
-            flex: 1, background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10,
-            padding: '5px 10px', fontSize: 12, color: '#f0e8d0',
-            outline: 'none', fontFamily: "'DM Sans', sans-serif",
-          }}
-        />
-
+        {/* Loading progress bar */}
         {isLoading && (
           <motion.div
-            initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
             transition={{ duration: 8, ease: 'linear' }}
             style={{
               position: 'absolute', bottom: 0, left: 0,
-              height: 2, width: '100%',
-              background: 'linear-gradient(90deg, #f0c050, #d4a030)',
+              height: 1.5, width: '100%',
+              background: `linear-gradient(90deg, transparent 0%, ${C.accent} 40%, #E8C97E 100%)`,
               transformOrigin: 'left',
             }}
           />
         )}
       </div>
 
-      {/* Container holding the transparent region where the separate WebContentsView will appear backing this React UI */}
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', background: 'transparent' }}>
-      </div>
+      {/* WebContentsView container — transparent region */}
+      <div ref={containerRef} style={{
+        flex: 1, minHeight: 0, position: 'relative',
+        display: 'flex', background: 'transparent',
+      }} />
     </div>
   );
 }

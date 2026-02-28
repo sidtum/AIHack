@@ -23,17 +23,31 @@ const EEO_OPTIONS = {
 
 const STEP_LABELS = ['Welcome', 'Resume', 'Transcript', 'Review', 'EEO', 'Done'];
 
+const C = {
+  accent:      '#D4AF6C',
+  accentBright:'#E8C97E',
+  teal:        '#89CEC2',
+  textPrimary: '#F5EDD8',
+  textSecond:  'rgba(245, 237, 216, 0.6)',
+  textDim:     'rgba(245, 237, 216, 0.35)',
+  glass:       'rgba(26, 34, 56, 0.65)',
+  borderGold:  'rgba(212, 175, 108, 0.14)',
+  borderGlass: 'rgba(245, 237, 216, 0.08)',
+  green:       '#7DD8B8',
+};
+
 const fieldStyle: React.CSSProperties = {
   width: '100%',
   padding: '9px 12px',
   borderRadius: 10,
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: '#f0e8d0',
+  background: 'rgba(26, 34, 56, 0.6)',
+  border: `1px solid rgba(245, 237, 216, 0.08)`,
+  color: '#F5EDD8',
   fontSize: 13,
   fontFamily: "'DM Sans', sans-serif",
   outline: 'none',
   boxSizing: 'border-box',
+  transition: 'border-color 0.15s',
 };
 
 const selectStyle: React.CSSProperties = {
@@ -46,9 +60,9 @@ const selectStyle: React.CSSProperties = {
 function FieldLabel({ text }: { text: string }) {
   return (
     <span style={{
-      fontSize: 10, color: 'rgba(240,200,100,0.5)', textTransform: 'uppercase',
-      letterSpacing: '0.12em', fontFamily: "'DM Sans', sans-serif",
-      marginBottom: 5, display: 'block',
+      fontSize: 9.5, color: C.textDim, textTransform: 'uppercase',
+      letterSpacing: '0.14em', fontFamily: "'JetBrains Mono', monospace",
+      fontWeight: 300, marginBottom: 5, display: 'block',
     }}>{text}</span>
   );
 }
@@ -60,10 +74,10 @@ function PrimaryBtn({ onClick, children }: { onClick: () => void; children: Reac
       onClick={onClick}
       style={{
         width: '100%', padding: '13px 24px', borderRadius: 12,
-        background: 'linear-gradient(135deg, #d4a030, #a07020)',
-        border: 'none', color: '#fff8e0', fontSize: 14, fontWeight: 500,
+        background: `linear-gradient(135deg, ${C.accent} 0%, #A87840 100%)`,
+        border: 'none', color: '#141B2D', fontSize: 14, fontWeight: 600,
         cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-        boxShadow: '0 4px 20px rgba(200,140,20,0.35)',
+        boxShadow: '0 4px 20px rgba(212,175,108,0.3)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}
     >{children}</motion.button>
@@ -74,9 +88,10 @@ function GhostBtn({ onClick, children }: { onClick: () => void; children: React.
   return (
     <button onClick={onClick} style={{
       background: 'transparent', border: 'none',
-      color: 'rgba(200,230,210,0.35)', fontSize: 12,
+      color: C.textDim, fontSize: 12,
       cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
       display: 'flex', alignItems: 'center', gap: 4,
+      transition: 'color 0.15s',
     }}>{children}</button>
   );
 }
@@ -85,12 +100,43 @@ function SecondaryBtn({ onClick, children }: { onClick: () => void; children: Re
   return (
     <button onClick={onClick} style={{
       flex: 1, padding: '11px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.04)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      color: '#cce0d8', fontSize: 13,
+      background: C.glass, backdropFilter: 'blur(8px)',
+      border: `1px solid ${C.borderGlass}`,
+      color: C.textSecond, fontSize: 13,
       cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      transition: 'background 0.15s',
     }}>{children}</button>
+  );
+}
+
+function UploadZone({ label, uploading, onChange }: {
+  label: string;
+  uploading: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <label style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+      border: `1.5px dashed ${uploading ? 'rgba(212,175,108,0.4)' : C.borderGold}`,
+      borderRadius: 14,
+      padding: '36px 24px', cursor: uploading ? 'default' : 'pointer',
+      background: uploading ? 'rgba(212,175,108,0.04)' : 'transparent', transition: 'all 0.2s',
+    }}
+      onMouseEnter={e => { if (!uploading) { e.currentTarget.style.borderColor = 'rgba(212,175,108,0.45)'; e.currentTarget.style.background = 'rgba(212,175,108,0.06)'; } }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = uploading ? 'rgba(212,175,108,0.4)' : C.borderGold; e.currentTarget.style.background = uploading ? 'rgba(212,175,108,0.04)' : 'transparent'; }}
+    >
+      <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={onChange} />
+      {uploading
+        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={22} style={{ color: C.accent }} /></motion.div>
+        : <Upload size={22} style={{ color: C.accent, opacity: 0.55 }} />}
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 13, color: C.textSecond, margin: '0 0 4px', fontFamily: "'DM Sans', sans-serif" }}>
+          {uploading ? `Parsing ${label.toLowerCase()}…` : `Click to upload ${label}`}
+        </p>
+        {!uploading && <p style={{ fontSize: 11, color: C.textDim, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>PDF only</p>}
+      </div>
+    </label>
   );
 }
 
@@ -133,67 +179,53 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const steps = [
     // ── 0: Welcome ──────────────────────────────────────────────────────────
     <motion.div key="welcome"
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, textAlign: 'center' }}
     >
       <motion.div
-        animate={{ y: [0, -7, 0], filter: ['drop-shadow(0 0 12px rgba(240,180,60,0.6))', 'drop-shadow(0 0 28px rgba(240,180,60,0.9))', 'drop-shadow(0 0 12px rgba(240,180,60,0.6))'] }}
+        animate={{
+          y: [0, -7, 0],
+          filter: ['drop-shadow(0 0 10px rgba(212,175,108,0.5))', 'drop-shadow(0 0 26px rgba(212,175,108,0.85))', 'drop-shadow(0 0 10px rgba(212,175,108,0.5))'],
+        }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ fontSize: 44, color: '#f0c050', lineHeight: 1 }}
-      >✦</motion.div>
+        style={{ fontSize: 40, color: C.accent, lineHeight: 1 }}
+      >
+        ✦
+      </motion.div>
 
       <div>
         <h1 style={{
-          fontFamily: "'Instrument Serif', serif", fontSize: 32, fontWeight: 400,
-          color: '#fff0d0', lineHeight: 1.2, letterSpacing: '-0.02em',
-          textShadow: '0 2px 30px rgba(240,180,60,0.3)', margin: 0,
+          fontFamily: "'Instrument Serif', serif", fontSize: 30, fontWeight: 400,
+          color: C.textPrimary, lineHeight: 1.2, letterSpacing: '-0.02em',
+          textShadow: '0 2px 30px rgba(212,175,108,0.2)', margin: 0,
         }}>
-          Welcome to <em style={{ fontStyle: 'italic', color: '#ffe098' }}>Sayam</em>
+          Welcome to <em style={{ fontStyle: 'italic', color: C.accent }}>Maya</em>
         </h1>
-        <p style={{ marginTop: 12, fontSize: 13, color: 'rgba(200,230,210,0.5)', lineHeight: 1.7, maxWidth: 320 }}>
+        <p style={{ marginTop: 12, fontSize: 13, color: C.textDim, lineHeight: 1.7, maxWidth: 300, fontFamily: "'DM Sans', sans-serif" }}>
           Your personal career and academic execution agent. A quick setup and I'm ready to work.
         </p>
       </div>
 
       <PrimaryBtn onClick={() => setStep(1)}>
-        Get started <ChevronRight size={15} />
+        Get started <ChevronRight size={14} />
       </PrimaryBtn>
     </motion.div>,
 
-    // ── 1: Resume ────────────────────────────────────────────────────────────
+    // ── 1: Resume ──────────────────────────────────────────────────────────
     <motion.div key="resume"
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
     >
       <div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#ffe8b0', fontWeight: 400, margin: '0 0 8px' }}>
-          Upload your <em style={{ fontStyle: 'italic' }}>resume</em>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: C.textPrimary, fontWeight: 400, margin: '0 0 7px' }}>
+          Upload your <em style={{ fontStyle: 'italic', color: C.accent }}>resume</em>
         </h2>
-        <p style={{ fontSize: 12, color: 'rgba(200,230,210,0.4)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
           I'll extract your name, email, skills, and experience automatically.
         </p>
       </div>
 
-      <label style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        border: '1.5px dashed rgba(240,180,60,0.35)', borderRadius: 16,
-        padding: '36px 24px', cursor: isUploading ? 'default' : 'pointer',
-        background: 'rgba(240,180,60,0.03)', transition: 'all 0.2s',
-      }}
-        onMouseEnter={e => { if (!isUploading) { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.6)'; e.currentTarget.style.background = 'rgba(240,180,60,0.06)'; } }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.35)'; e.currentTarget.style.background = 'rgba(240,180,60,0.03)'; }}
-      >
-        <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e, false)} />
-        {isUploading
-          ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={22} style={{ color: '#f0c050' }} /></motion.div>
-          : <Upload size={22} style={{ color: 'rgba(240,180,60,0.55)' }} />}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: 'rgba(255,230,150,0.6)', margin: '0 0 4px', fontFamily: "'DM Sans', sans-serif" }}>
-            {isUploading ? 'Parsing with AI...' : 'Click to upload PDF resume'}
-          </p>
-          {!isUploading && <p style={{ fontSize: 11, color: 'rgba(200,220,210,0.3)', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>PDF only</p>}
-        </div>
-      </label>
+      <UploadZone label="PDF resume" uploading={isUploading} onChange={e => handleFileUpload(e, false)} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <GhostBtn onClick={() => setStep(0)}><ArrowLeft size={12} /> Back</GhostBtn>
@@ -201,40 +233,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       </div>
     </motion.div>,
 
-    // ── 2: Transcript ────────────────────────────────────────────────────────
+    // ── 2: Transcript ─────────────────────────────────────────────────────
     <motion.div key="transcript"
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
     >
       <div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#ffe8b0', fontWeight: 400, margin: '0 0 8px' }}>
-          Upload your <em style={{ fontStyle: 'italic' }}>transcript</em>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: C.textPrimary, fontWeight: 400, margin: '0 0 7px' }}>
+          Upload your <em style={{ fontStyle: 'italic', color: C.accent }}>transcript</em>
         </h2>
-        <p style={{ fontSize: 12, color: 'rgba(200,230,210,0.4)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
           Many applications ask for an unofficial transcript. I'll attach it automatically when applying.
         </p>
       </div>
 
-      <label style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        border: '1.5px dashed rgba(240,180,60,0.35)', borderRadius: 16,
-        padding: '36px 24px', cursor: isUploading ? 'default' : 'pointer',
-        background: 'rgba(240,180,60,0.03)', transition: 'all 0.2s',
-      }}
-        onMouseEnter={e => { if (!isUploading) { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.6)'; e.currentTarget.style.background = 'rgba(240,180,60,0.06)'; } }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.35)'; e.currentTarget.style.background = 'rgba(240,180,60,0.03)'; }}
-      >
-        <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e, true)} />
-        {isUploading
-          ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={22} style={{ color: '#f0c050' }} /></motion.div>
-          : <Upload size={22} style={{ color: 'rgba(240,180,60,0.55)' }} />}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: 'rgba(255,230,150,0.6)', margin: '0 0 4px', fontFamily: "'DM Sans', sans-serif" }}>
-            {isUploading ? 'Uploading...' : 'Click to upload PDF transcript'}
-          </p>
-          {!isUploading && <p style={{ fontSize: 11, color: 'rgba(200,220,210,0.3)', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>PDF only</p>}
-        </div>
-      </label>
+      <UploadZone label="PDF transcript" uploading={isUploading} onChange={e => handleFileUpload(e, true)} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <GhostBtn onClick={() => setStep(1)}><ArrowLeft size={12} /> Back</GhostBtn>
@@ -242,16 +255,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       </div>
     </motion.div>,
 
-    // ── 3: Review ────────────────────────────────────────────────────────────
+    // ── 3: Review ─────────────────────────────────────────────────────────
     <motion.div key="review"
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
     >
       <div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#ffe8b0', fontWeight: 400, margin: '0 0 6px' }}>
-          Review your <em style={{ fontStyle: 'italic' }}>info</em>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: C.textPrimary, fontWeight: 400, margin: '0 0 6px' }}>
+          Review your <em style={{ fontStyle: 'italic', color: C.accent }}>info</em>
         </h2>
-        <p style={{ fontSize: 12, color: 'rgba(200,230,210,0.4)', margin: 0 }}>
+        <p style={{ fontSize: 12, color: C.textDim, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
           {profile ? 'Extracted from your resume — edit anything that looks off.' : 'Fill in your details manually.'}
         </p>
       </div>
@@ -270,8 +283,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <input
               value={extraFields[key] ?? profile?.[key] ?? ''}
               onChange={e => setExtraFields(p => ({ ...p, [key]: e.target.value }))}
-              placeholder={`Enter ${l.toLowerCase()}...`}
+              placeholder={`Enter ${l.toLowerCase()}…`}
               style={fieldStyle}
+              onFocus={e => e.target.style.borderColor = 'rgba(212,175,108,0.35)'}
+              onBlur={e => e.target.style.borderColor = C.borderGlass}
             />
           </div>
         ))}
@@ -292,24 +307,25 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           }}
           style={{
             flex: 2, padding: '11px', borderRadius: 10,
-            background: 'linear-gradient(135deg, #d4a030, #a07020)',
-            border: 'none', color: '#fff8e0', fontSize: 13, fontWeight: 500,
+            background: `linear-gradient(135deg, ${C.accent} 0%, #A87840 100%)`,
+            border: 'none', color: '#141B2D', fontSize: 13, fontWeight: 600,
             cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
         >Continue <ChevronRight size={13} /></motion.button>
       </div>
     </motion.div>,
 
-    // ── 4: EEO ───────────────────────────────────────────────────────────────
+    // ── 4: EEO ────────────────────────────────────────────────────────────
     <motion.div key="eeo"
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
     >
       <div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#ffe8b0', fontWeight: 400, margin: '0 0 6px' }}>
-          EEO <em style={{ fontStyle: 'italic' }}>disclosures</em>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: C.textPrimary, fontWeight: 400, margin: '0 0 6px' }}>
+          EEO <em style={{ fontStyle: 'italic', color: C.accent }}>disclosures</em>
         </h2>
-        <p style={{ fontSize: 12, color: 'rgba(200,230,210,0.4)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
           Most applications require these. Stored locally, used only when applying.
         </p>
       </div>
@@ -319,8 +335,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           <div key={key}>
             <FieldLabel text={key.replace(/_/g, ' ')} />
             <select value={eeo[key] ?? ''} onChange={e => setEeo(p => ({ ...p, [key]: e.target.value }))} style={selectStyle}>
-              <option value="" style={{ background: '#1a2a2a' }}>Select...</option>
-              {options.map(opt => <option key={opt} value={opt} style={{ background: '#1a2a2a' }}>{opt}</option>)}
+              <option value="" style={{ background: '#141B2D' }}>Select…</option>
+              {options.map(opt => <option key={opt} value={opt} style={{ background: '#141B2D' }}>{opt}</option>)}
             </select>
           </div>
         ))}
@@ -333,15 +349,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           onClick={saveEeo}
           style={{
             flex: 2, padding: '11px', borderRadius: 10,
-            background: 'linear-gradient(135deg, #d4a030, #a07020)',
-            border: 'none', color: '#fff8e0', fontSize: 13, fontWeight: 500,
+            background: `linear-gradient(135deg, ${C.accent} 0%, #A87840 100%)`,
+            border: 'none', color: '#141B2D', fontSize: 13, fontWeight: 600,
             cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
         >Save &amp; Continue <ChevronRight size={13} /></motion.button>
       </div>
     </motion.div>,
 
-    // ── 5: Done ───────────────────────────────────────────────────────────────
+    // ── 5: Done ───────────────────────────────────────────────────────────
     <motion.div key="done"
       initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, textAlign: 'center' }}
@@ -351,24 +368,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 360, damping: 18, delay: 0.1 }}
         style={{
-          width: 64, height: 64, borderRadius: 20,
-          background: 'rgba(80,200,130,0.1)',
-          border: '1px solid rgba(80,200,130,0.3)',
+          width: 62, height: 62, borderRadius: 18,
+          background: 'rgba(125,216,184,0.08)',
+          border: '1px solid rgba(125,216,184,0.28)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 40px rgba(80,200,130,0.15)',
+          boxShadow: '0 0 36px rgba(125,216,184,0.12)',
         }}
       >
-        <Check size={28} style={{ color: '#6ee7a0' }} />
+        <Check size={26} style={{ color: '#7DD8B8' }} />
       </motion.div>
 
       <div>
         <h2 style={{
-          fontFamily: "'Instrument Serif', serif", fontSize: 30, fontWeight: 400,
-          color: '#fff0d0', margin: '0 0 10px', letterSpacing: '-0.02em',
+          fontFamily: "'Instrument Serif', serif", fontSize: 28, fontWeight: 400,
+          color: C.textPrimary, margin: '0 0 10px', letterSpacing: '-0.02em',
         }}>
-          You're all <em style={{ fontStyle: 'italic', color: '#ffe098' }}>set</em>
+          You're all <em style={{ fontStyle: 'italic', color: C.accent }}>set</em>
         </h2>
-        <p style={{ fontSize: 13, color: 'rgba(200,230,210,0.5)', lineHeight: 1.7, maxWidth: 300, margin: 0 }}>
+        <p style={{ fontSize: 13, color: C.textDim, lineHeight: 1.7, maxWidth: 280, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
           Your profile is ready. I can now tailor applications and study plans specifically to you.
         </p>
       </div>
@@ -386,7 +403,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       style={{
         position: 'absolute', inset: 0, zIndex: 60,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(8,16,16,0.85)',
+        background: 'rgba(10, 15, 28, 0.88)',
         backdropFilter: 'blur(24px)',
         borderRadius: 14,
       }}
@@ -394,14 +411,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       {/* Step indicators */}
       <div style={{
         position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', gap: 6, alignItems: 'center',
+        display: 'flex', gap: 5, alignItems: 'center',
       }}>
         {STEP_LABELS.map((_, i) => (
           <motion.div
             key={i}
-            animate={{ width: i === step ? 28 : 7, background: i < step ? 'rgba(240,180,60,0.7)' : i === step ? 'rgba(240,180,60,0.9)' : 'rgba(255,255,255,0.12)' }}
-            transition={{ duration: 0.3 }}
-            style={{ height: 7, borderRadius: 4 }}
+            animate={{
+              width: i === step ? 26 : 7,
+              background: i < step ? 'rgba(212,175,108,0.65)' : i === step ? C.accent : 'rgba(245,237,216,0.1)',
+            }}
+            transition={{ duration: 0.28 }}
+            style={{ height: 6, borderRadius: 3 }}
           />
         ))}
       </div>
@@ -410,9 +430,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <div style={{
         position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)',
         fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase',
-        color: 'rgba(240,200,100,0.4)', fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap',
+        color: 'rgba(212,175,108,0.45)', fontFamily: "'JetBrains Mono', monospace",
+        fontWeight: 300, whiteSpace: 'nowrap',
       }}>
-        Step {step + 1} of {STEP_LABELS.length} &nbsp;·&nbsp; {STEP_LABELS[step]}
+        {step + 1} / {STEP_LABELS.length} &nbsp;·&nbsp; {STEP_LABELS[step]}
       </div>
 
       {/* Card */}
@@ -421,12 +442,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         style={{
           width: '100%', maxWidth: 400,
           margin: '0 24px',
-          background: 'rgba(255,255,255,0.035)',
-          border: '1px solid rgba(240,180,60,0.18)',
+          background: 'rgba(26, 34, 56, 0.7)',
+          border: `1px solid rgba(212, 175, 108, 0.16)`,
           borderRadius: 20,
           padding: '40px 36px',
-          boxShadow: '0 0 0 1px rgba(240,180,60,0.06), 0 32px 80px rgba(0,0,0,0.55)',
-          backdropFilter: 'blur(16px)',
+          boxShadow: `0 0 0 1px rgba(212,175,108,0.06), 0 32px 80px rgba(0,0,0,0.55)`,
+          backdropFilter: 'blur(20px)',
         }}
       >
         <AnimatePresence mode="wait">

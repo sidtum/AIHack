@@ -56,22 +56,36 @@ async def ws_send(message: str):
 
 # ── Intent Classification ────────────────────────────────────────────────────
 
-def classify_intent(text: str) -> str:
-    """Keyword-based intent classification. Zero-latency for demo."""
-    t = text.lower().strip()
-    if any(kw in t for kw in ["apply", "internship", "job", "career"]):
-        return "career"
-    if any(kw in t for kw in ["study mode", "focus mode", "i'm studying", "im studying", "block sites", "block distractions", "enter study mode", "start study mode"]):
-        return "study_mode"
-    if any(kw in t for kw in ["exam", "study", "canvas", "course", "class", "midterm", "final"]):
-        return "academic"
-    if any(kw in t for kw in ["yes", "proceed", "go ahead", "do it", "confirm"]):
-        return "confirm"
-    if any(kw in t for kw in ["no", "nope", "skip", "don't", "use existing", "use original", "no thanks"]):
-        return "decline"
-    if any(kw in t for kw in ["quiz", "test me", "start quiz"]):
-        return "quiz"
-    return "general"
+async def classify_intent(text: str, pending_type: str | None = None) -> str:
+    """LLM intent classification using Gemini 3 Pro Preview."""
+    pending_ctx = f"There is a pending '{pending_type}' action awaiting the user's response." if pending_type else "No pending action."
+    prompt = f"""Classify this message into one of: career, academic, study_mode, confirm, decline, quiz, general.
+
+- career: wants to apply to jobs or internships
+- academic: wants help studying, exam prep, Canvas, course material
+- study_mode: wants to enter focus/study mode or block distractions
+- confirm: agreeing or approving (yes, yea, sure, ok, sounds good, go for it, etc.)
+- decline: disagreeing or cancelling (no, nah, skip, cancel, etc.)
+- quiz: wants to take a quiz or be tested
+- general: anything else
+
+Context: {pending_ctx}
+Message: "{text}"
+
+Reply with ONLY the single word."""
+    try:
+        import re as _re
+        _client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+        response = await _client.aio.models.generate_content(
+            model="gemini-3-pro-preview",
+            contents=prompt,
+        )
+        intent = _re.sub(r'[^a-z_]', '', response.text.strip().lower().split()[0])
+        if intent in ("career", "academic", "study_mode", "confirm", "decline", "quiz"):
+            return intent
+        return "general"
+    except Exception:
+        return "general"
 
 # ── Pending action state (per-session, single-user demo) ─────────────────────
 pending_action = {"type": None, "data": None, "course": None}
@@ -341,7 +355,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if msg_type == "user_message":
                     text = msg.get("text", "")
-                    intent = classify_intent(text)
+                    intent = await classify_intent(text, pending_action["type"])
 
                     if intent == "career":
                         pending_action = {"type": "career", "data": text}

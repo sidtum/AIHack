@@ -124,8 +124,8 @@ export function StudyModeOverlay({
         >
             {/* ── Block Banner ─────────────────────────────────────────── */}
             <div style={{
-                background: 'linear-gradient(90deg, rgba(240,180,60,0.15) 0%, rgba(200,130,20,0.08) 100%)',
-                borderBottom: '1px solid rgba(240,180,60,0.2)',
+                background: 'linear-gradient(90deg, rgba(212,175,108,0.12) 0%, rgba(180,140,80,0.06) 100%)',
+                borderBottom: '1px solid rgba(212,175,108,0.14)',
                 backdropFilter: 'blur(20px)',
                 padding: '8px 16px',
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -134,16 +134,16 @@ export function StudyModeOverlay({
                 <motion.div
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    style={{ color: '#f0c050', flexShrink: 0 }}
+                    style={{ color: '#D4AF6C', flexShrink: 0 }}
                 >
                     <BookOpen size={14} />
                 </motion.div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#f0c050', letterSpacing: '0.06em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: '#D4AF6C', letterSpacing: '0.08em', fontFamily: "'JetBrains Mono', monospace" }}>
                         STUDY MODE
                     </span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,240,200,0.55)', marginLeft: 8 }}>
+                    <span style={{ fontSize: 11, color: 'rgba(245,237,216,0.45)', marginLeft: 8, fontFamily: "'DM Sans', sans-serif" }}>
                         {blockedCount} distracting sites blocked
                         {subject ? ` · ${subject}` : ''}
                     </span>
@@ -157,10 +157,10 @@ export function StudyModeOverlay({
                     disabled={isGeneratingCards}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 5,
-                        background: 'rgba(80,200,160,0.1)',
-                        border: '1px solid rgba(80,200,160,0.25)',
+                        background: 'rgba(137,206,194,0.08)',
+                        border: '1px solid rgba(137,206,194,0.2)',
                         borderRadius: 16, padding: '4px 12px',
-                        color: '#6ee7c8', cursor: isGeneratingCards ? 'default' : 'pointer',
+                        color: '#89CEC2', cursor: isGeneratingCards ? 'default' : 'pointer',
                         fontSize: 11, fontWeight: 500,
                         opacity: isGeneratingCards ? 0.6 : 1,
                         transition: 'all 0.2s',

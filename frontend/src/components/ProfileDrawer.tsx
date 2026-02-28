@@ -24,6 +24,18 @@ const EEO_OPTIONS: Record<string, string[]> = {
     ],
 };
 
+const C = {
+    accent: '#D4AF6C',
+    teal: '#89CEC2',
+    textPrimary: '#F5EDD8',
+    textSecond: 'rgba(245, 237, 216, 0.6)',
+    textDim: 'rgba(245, 237, 216, 0.35)',
+    glass: 'rgba(26, 34, 56, 0.65)',
+    borderGold: 'rgba(212, 175, 108, 0.14)',
+    borderGlass: 'rgba(245, 237, 216, 0.08)',
+    green: '#7DD8B8',
+};
+
 export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCourseTracker }: ProfileDrawerProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [isUploadingTranscript, setIsUploadingTranscript] = useState(false);
@@ -33,7 +45,6 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
     const fileInputRef = useRef<HTMLInputElement>(null);
     const transcriptInputRef = useRef<HTMLInputElement>(null);
 
-    // Load existing profile and Linq config when drawer opens
     useEffect(() => {
         if (isOpen) {
             fetch('http://127.0.0.1:8000/profile')
@@ -117,24 +128,28 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
 
     const chip = (text: string, color: string) => (
         <span key={text} style={{
-            fontSize: 11, padding: '3px 10px', borderRadius: 20,
-            background: `${color}20`, color, border: `1px solid ${color}40`,
+            fontSize: 10.5, padding: '2px 9px', borderRadius: 18,
+            background: `${color}18`, color, border: `1px solid ${color}35`,
             fontFamily: "'DM Sans', sans-serif",
         }}>{text}</span>
     );
 
     const isHighlighted = (field: string) => highlightFields.includes(field);
 
-    const selectStyle = (field: string): React.CSSProperties => ({
-        width: '100%',
-        padding: '7px 10px',
-        borderRadius: 8,
-        background: 'rgba(255,255,255,0.04)',
-        border: isHighlighted(field) ? '1px solid rgba(240,180,60,0.5)' : '1px solid rgba(255,255,255,0.06)',
-        color: '#f0e0c0',
-        fontSize: 12,
+    const inputStyle = (field: string): React.CSSProperties => ({
+        width: '100%', fontSize: 12.5,
+        background: C.glass, backdropFilter: 'blur(8px)' as any,
+        padding: '7px 10px', borderRadius: 8,
+        border: isHighlighted(field)
+            ? `1px solid rgba(212,175,108,0.5)`
+            : `1px solid ${C.borderGlass}`,
+        color: C.textPrimary, outline: 'none',
         fontFamily: "'DM Sans', sans-serif",
-        outline: 'none',
+        transition: 'border-color 0.15s',
+    });
+
+    const selectStyle = (field: string): React.CSSProperties => ({
+        ...inputStyle(field),
         appearance: 'none' as const,
         WebkitAppearance: 'none' as const,
         cursor: 'pointer',
@@ -149,26 +164,29 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
                 position: 'absolute',
                 left: 0, top: 0, bottom: 0,
                 width: '272px',
-                background: 'rgba(6, 18, 18, 0.96)',
+                background: 'rgba(12, 18, 32, 0.97)',
                 backdropFilter: 'blur(40px)',
-                borderRight: '2px solid rgba(240,180,60,0.5)',
+                borderRight: `2px solid ${C.borderGold}`,
                 padding: '20px',
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: 50,
-                color: '#f0e8d0',
-                gap: '14px',
+                color: C.textPrimary,
+                gap: '13px',
                 overflowY: 'auto',
                 WebkitAppRegion: 'no-drag',
             } as React.CSSProperties}
         >
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 16, fontStyle: 'normal', color: '#ffe8b0' }}>
-                    Your <em style={{ fontStyle: 'italic' }}>profile</em>
+                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 16, color: C.textPrimary }}>
+                    Your <em style={{ fontStyle: 'italic', color: C.accent }}>profile</em>
                 </span>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,240,170,0.3)', display: 'flex' }}>
-                    <X size={17} />
+                <button
+                    onClick={onClose}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.textDim, display: 'flex', padding: 4 }}
+                >
+                    <X size={15} />
                 </button>
             </div>
 
@@ -192,71 +210,72 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
                 Course Tracker
             </motion.button>
 
-            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                {/* Resume Upload zone */}
+            {/* Upload zones */}
+            <div style={{ display: 'flex', gap: 9, flexShrink: 0 }}>
+                {/* Resume */}
                 <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
                     style={{
                         flex: 1,
-                        border: `1.5px dashed ${isUploading ? 'rgba(240,180,60,0.4)' : 'rgba(240,180,60,0.2)'}`,
-                        borderRadius: 12, padding: '16px 10px',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                        border: `1.5px dashed ${isUploading ? 'rgba(212,175,108,0.4)' : C.borderGold}`,
+                        borderRadius: 11, padding: '14px 8px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
                         cursor: isUploading ? 'default' : 'pointer',
-                        background: isUploading ? 'rgba(240,180,60,0.04)' : 'transparent',
+                        background: isUploading ? 'rgba(212,175,108,0.04)' : 'transparent',
                         transition: 'all 0.2s',
                     }}
-                    onMouseEnter={e => { if (!isUploading) { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.5)'; e.currentTarget.style.background = 'rgba(240,180,60,0.06)'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.2)'; e.currentTarget.style.background = 'transparent'; }}
+                    onMouseEnter={e => { if (!isUploading) { e.currentTarget.style.borderColor = 'rgba(212,175,108,0.4)'; e.currentTarget.style.background = 'rgba(212,175,108,0.05)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.borderGold; e.currentTarget.style.background = 'transparent'; }}
                 >
                     <input type="file" accept="application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileUpload} />
                     {isUploading
-                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={18} style={{ color: '#f0c050' }} /></motion.div>
-                        : <Upload size={18} style={{ color: 'rgba(240,180,60,0.5)' }} />
+                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={16} style={{ color: C.accent }} /></motion.div>
+                        : <Upload size={16} style={{ color: C.accent, opacity: 0.6 }} />
                     }
-                    <span style={{ fontSize: 11, color: 'rgba(255,230,150,0.4)', textAlign: 'center', lineHeight: 1.4 }}>
-                        {isUploading ? 'Parsing...' : profile?.resume_pdf_path ? 'Update Resume' : 'Resume'}
+                    <span style={{ fontSize: 10.5, color: C.textDim, textAlign: 'center', lineHeight: 1.4, fontFamily: "'DM Sans', sans-serif" }}>
+                        {isUploading ? 'Parsing…' : profile?.resume_pdf_path ? 'Update Resume' : 'Resume'}
                     </span>
                 </div>
 
-                {/* Transcript Upload zone */}
+                {/* Transcript */}
                 <div
                     onClick={() => !isUploadingTranscript && transcriptInputRef.current?.click()}
                     style={{
                         flex: 1,
-                        border: `1.5px dashed ${isUploadingTranscript ? 'rgba(240,180,60,0.4)' : 'rgba(240,180,60,0.2)'}`,
-                        borderRadius: 12, padding: '16px 10px',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                        border: `1.5px dashed ${isUploadingTranscript ? 'rgba(212,175,108,0.4)' : C.borderGold}`,
+                        borderRadius: 11, padding: '14px 8px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
                         cursor: isUploadingTranscript ? 'default' : 'pointer',
-                        background: isUploadingTranscript ? 'rgba(240,180,60,0.04)' : 'transparent',
+                        background: isUploadingTranscript ? 'rgba(212,175,108,0.04)' : 'transparent',
                         transition: 'all 0.2s',
                     }}
-                    onMouseEnter={e => { if (!isUploadingTranscript) { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.5)'; e.currentTarget.style.background = 'rgba(240,180,60,0.06)'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(240,180,60,0.2)'; e.currentTarget.style.background = 'transparent'; }}
+                    onMouseEnter={e => { if (!isUploadingTranscript) { e.currentTarget.style.borderColor = 'rgba(212,175,108,0.4)'; e.currentTarget.style.background = 'rgba(212,175,108,0.05)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.borderGold; e.currentTarget.style.background = 'transparent'; }}
                 >
                     <input type="file" accept="application/pdf" style={{ display: 'none' }} ref={transcriptInputRef} onChange={handleTranscriptUpload} />
                     {isUploadingTranscript
-                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={18} style={{ color: '#f0c050' }} /></motion.div>
-                        : <Upload size={18} style={{ color: 'rgba(240,180,60,0.5)' }} />
+                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><RefreshCw size={16} style={{ color: C.accent }} /></motion.div>
+                        : <Upload size={16} style={{ color: C.accent, opacity: 0.6 }} />
                     }
-                    <span style={{ fontSize: 11, color: 'rgba(255,230,150,0.4)', textAlign: 'center', lineHeight: 1.4 }}>
-                        {isUploadingTranscript ? 'Uploading...' : profile?.transcript_pdf_path ? 'Update Transcript' : 'Transcript'}
+                    <span style={{ fontSize: 10.5, color: C.textDim, textAlign: 'center', lineHeight: 1.4, fontFamily: "'DM Sans', sans-serif" }}>
+                        {isUploadingTranscript ? 'Uploading…' : profile?.transcript_pdf_path ? 'Update Transcript' : 'Transcript'}
                     </span>
                 </div>
             </div>
 
             {/* Error */}
             {error && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(255,80,80,0.08)', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,80,80,0.2)' }}>
-                    <AlertCircle size={14} style={{ color: '#f87171', flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ fontSize: 12, color: '#fca5a5', lineHeight: 1.5 }}>{error}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(212,112,112,0.08)', padding: '9px 11px', borderRadius: 9, border: '1px solid rgba(212,112,112,0.2)' }}>
+                    <AlertCircle size={13} style={{ color: '#D47070', flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 11.5, color: '#D47070', lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>{error}</span>
                 </div>
             )}
 
             {/* Extracted profile */}
             {profile && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(80,200,130,0.08)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(80,200,130,0.18)', fontSize: 12, color: '#6ee7a0' }}>
-                        <CheckCircle2 size={13} /> Resume extracted
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(125,216,184,0.07)', padding: '7px 11px', borderRadius: 9, border: '1px solid rgba(125,216,184,0.18)', fontSize: 11.5, color: C.green, fontFamily: "'DM Sans', sans-serif" }}>
+                        <CheckCircle2 size={12} /> Resume extracted
                     </div>
 
                     {[
@@ -269,57 +288,63 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
                         { label: 'Graduation Year', key: 'graduation_year' },
                     ].map(({ label: l, key }) => (
                         <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span style={{ fontSize: 9.5, color: isHighlighted(key) ? 'rgba(240,180,60,0.7)' : 'rgba(240,200,100,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: "'DM Sans', sans-serif" }}>{l}</span>
+                            <span style={{
+                                fontSize: 9.5,
+                                color: isHighlighted(key) ? C.accent : C.textDim,
+                                textTransform: 'uppercase', letterSpacing: '0.12em',
+                                fontFamily: "'JetBrains Mono', monospace", fontWeight: 300,
+                            }}>{l}</span>
                             <input
                                 value={profile[key] ?? ''}
                                 onChange={e => updateField(key, e.target.value)}
                                 placeholder={`Enter ${l.toLowerCase()}`}
-                                style={{
-                                    fontSize: 13, background: 'rgba(255,255,255,0.04)',
-                                    padding: '7px 10px', borderRadius: 8,
-                                    border: isHighlighted(key) ? '1px solid rgba(240,180,60,0.5)' : '1px solid rgba(255,255,255,0.06)',
-                                    color: '#f0e0c0', outline: 'none',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                }}
+                                style={inputStyle(key)}
+                                onFocus={e => e.target.style.borderColor = 'rgba(212,175,108,0.35)'}
+                                onBlur={e => e.target.style.borderColor = isHighlighted(key) ? 'rgba(212,175,108,0.5)' : C.borderGlass}
                             />
                         </div>
                     ))}
 
                     {parseList(profile.skills).length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <span style={{ fontSize: 9.5, color: 'rgba(240,200,100,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: "'DM Sans', sans-serif" }}>Skills</span>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                                {parseList(profile.skills).map((s: string) => chip(s, '#a0c8b0'))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            <span style={{ fontSize: 9.5, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'JetBrains Mono', monospace", fontWeight: 300 }}>Skills</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {parseList(profile.skills).map((s: string) => chip(s, C.teal))}
                             </div>
                         </div>
                     )}
 
                     {parseList(profile.target_roles).length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <span style={{ fontSize: 9.5, color: 'rgba(240,200,100,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: "'DM Sans', sans-serif" }}>Target Roles</span>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                                {parseList(profile.target_roles).map((r: string) => chip(r, '#f0c050'))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            <span style={{ fontSize: 9.5, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'JetBrains Mono', monospace", fontWeight: 300 }}>Target Roles</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {parseList(profile.target_roles).map((r: string) => chip(r, C.accent))}
                             </div>
                         </div>
                     )}
 
-                    {/* EEO Section */}
-                    <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span style={{ fontSize: 10, color: 'rgba(240,200,100,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'DM Sans', sans-serif" }}>EEO Disclosures</span>
+                    {/* EEO */}
+                    <div style={{ marginTop: 4, paddingTop: 11, borderTop: `1px solid ${C.borderGlass}` }}>
+                        <span style={{ fontSize: 9.5, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'JetBrains Mono', monospace", fontWeight: 300 }}>EEO Disclosures</span>
                     </div>
 
                     {Object.entries(EEO_OPTIONS).map(([key, options]) => (
                         <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span style={{ fontSize: 9.5, color: isHighlighted(key) ? 'rgba(240,180,60,0.7)' : 'rgba(240,200,100,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: "'DM Sans', sans-serif" }}>
-                                {key.replace('_', ' ')}
+                            <span style={{
+                                fontSize: 9.5,
+                                color: isHighlighted(key) ? C.accent : C.textDim,
+                                textTransform: 'uppercase', letterSpacing: '0.12em',
+                                fontFamily: "'JetBrains Mono', monospace", fontWeight: 300,
+                            }}>
+                                {key.replace(/_/g, ' ')}
                             </span>
                             <select
                                 value={profile[key] ?? ''}
                                 onChange={e => updateField(key, e.target.value)}
                                 style={selectStyle(key)}
                             >
-                                <option value="" style={{ background: '#1a2a2a' }}>Select...</option>
-                                {options.map(opt => <option key={opt} value={opt} style={{ background: '#1a2a2a' }}>{opt}</option>)}
+                                <option value="" style={{ background: '#141B2D' }}>Select…</option>
+                                {options.map(opt => <option key={opt} value={opt} style={{ background: '#141B2D' }}>{opt}</option>)}
                             </select>
                         </div>
                     ))}
@@ -327,27 +352,27 @@ export function ProfileDrawer({ isOpen, onClose, highlightFields = [], onOpenCou
             )}
 
             {!profile && !error && !isUploading && (
-                <p style={{ fontSize: 11.5, color: 'rgba(200,220,210,0.3)', lineHeight: 1.6, textAlign: 'center', margin: 0 }}>
-                    Upload your resume so Sayam can tailor applications and study plans specifically to you.
+                <p style={{ fontSize: 11.5, color: C.textDim, lineHeight: 1.65, textAlign: 'center', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                    Upload your resume so Maya can tailor applications and study plans specifically to you.
                 </p>
             )}
 
             {/* Linq / SMS section */}
-            <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 10, color: 'rgba(240,200,100,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'DM Sans', sans-serif" }}>
+            <div style={{ marginTop: 6, paddingTop: 11, borderTop: `1px solid ${C.borderGlass}`, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <span style={{ fontSize: 9.5, color: C.textDim, textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'JetBrains Mono', monospace", fontWeight: 300 }}>
                     iMessage / SMS
                 </span>
                 {linqPhone ? (
                     <>
-                        <div style={{ fontSize: 14, color: '#6ee7a0', fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em' }}>
+                        <div style={{ fontSize: 14, color: C.green, fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em' }}>
                             {linqPhone}
                         </div>
-                        <p style={{ fontSize: 11, color: 'rgba(200,220,210,0.45)', lineHeight: 1.5, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-                            Save this number as "Sayam" in your iPhone contacts to control Sayam via iMessage from anywhere.
+                        <p style={{ fontSize: 11, color: C.textDim, lineHeight: 1.55, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                            Save this number as "Maya" in your iPhone contacts to control Maya via iMessage from anywhere.
                         </p>
                     </>
                 ) : (
-                    <p style={{ fontSize: 11, color: 'rgba(200,220,210,0.3)', lineHeight: 1.5, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                    <p style={{ fontSize: 11, color: C.textDim, lineHeight: 1.55, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
                         Add LINQ_API_TOKEN to .env and restart the backend to enable SMS.
                     </p>
                 )}

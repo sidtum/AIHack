@@ -1,10 +1,49 @@
 @import "tailwindcss";
 
+/* ─── Design Tokens ──────────────────────────────────────────────────────── */
 :root {
-  --grain-opacity: 0.28;
+  /* Background layers */
+  --bg-primary: #141B2D;
+  --bg-surface: #1A2238;
+  --bg-elevated: #202840;
+  --bg-overlay: rgba(20, 27, 45, 0.92);
+
+  /* Typography */
+  --text-primary: #F5EDD8;
+  --text-secondary: #A89E8A;
+  --text-dim: #6B6258;
+  --text-inverse: #141B2D;
+
+  /* Accent — Champagne Gold */
+  --accent: #D4AF6C;
+  --accent-bright: #E8C97E;
+  --accent-muted: rgba(212, 175, 108, 0.6);
+  --accent-glow: rgba(212, 175, 108, 0.25);
+
+  /* Secondary — Seafoam Teal */
+  --teal: #89CEC2;
+  --teal-muted: rgba(137, 206, 194, 0.5);
+
+  /* Borders */
+  --border-gold: rgba(212, 175, 108, 0.14);
+  --border-glass: rgba(245, 237, 216, 0.08);
+  --border-focus: rgba(212, 175, 108, 0.38);
+
+  /* Glass surface */
+  --glass-bg: rgba(26, 34, 56, 0.65);
+  --glass-bg-light: rgba(32, 40, 64, 0.5);
+
+  /* Status colors */
+  --status-connected: #7DD8B8;
+  --status-executing: #D4AF6C;
+  --status-offline: #D47070;
+  --status-idle: #8A9EB0;
+
+  /* Grain opacity */
+  --grain-opacity: 0.16;
 }
 
-/* ─── Animated film grain overlay ─── */
+/* ─── Animated Film Grain ───────────────────────────────────────────────── */
 @keyframes grain {
 
   0%,
@@ -53,22 +92,111 @@ body::after {
   content: "";
   position: fixed;
   inset: -200%;
-  /* oversized so translate doesn't show edges */
   width: 400%;
   height: 400%;
   pointer-events: none;
-  z-index: 9999;
-  border-radius: 14px;
+  z-index: 9998;
   opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 180px 180px;
   mix-blend-mode: overlay;
   animation: grain 0.4s steps(1) infinite;
-  /* rapid frame-skip = film grain feel */
 }
 
+/* ─── Spin utility ──────────────────────────────────────────────────────── */
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Iridescent focus glow: conic gradient rotation ────────────────────── */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spin-hue {
+  to {
+    --angle: 360deg;
+  }
+}
+
+
+/* ─── Breathing pulse utility ───────────────────────────────────────────── */
+@keyframes breathe {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* ─── Shimmer for loading states ────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg,
+      rgba(212, 175, 108, 0) 0%,
+      rgba(212, 175, 108, 0.12) 50%,
+      rgba(212, 175, 108, 0) 100%);
+  background-size: 200% auto;
+  animation: shimmer 2s linear infinite;
+}
+
+/* ─── Glassmorphism utility classes ─────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+}
+
+.glass-gold {
+  background: rgba(212, 175, 108, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-gold);
+}
+
+/* ─── Paper texture card ─────────────────────────────────────────────────  */
+.paper-card {
+  background: #F4EFE4;
+  box-shadow:
+    0 2px 6px rgba(20, 16, 10, 0.12),
+    0 8px 32px rgba(20, 16, 10, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  position: relative;
+}
+
+.paper-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+  pointer-events: none;
 }

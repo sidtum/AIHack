@@ -17,12 +17,24 @@ interface CareerDashboardProps {
   onClose: () => void;
 }
 
+const C = {
+  accent: '#D4AF6C',
+  teal: '#89CEC2',
+  textPrimary: '#F5EDD8',
+  textSecond: 'rgba(245, 237, 216, 0.6)',
+  textDim: 'rgba(245, 237, 216, 0.35)',
+  glass: 'rgba(26, 34, 56, 0.65)',
+  borderGold: 'rgba(212, 175, 108, 0.14)',
+  borderGlass: 'rgba(245, 237, 216, 0.08)',
+  green: '#7DD8B8',
+};
+
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Applied:   { bg: 'rgba(240,180,60,0.12)',  text: 'rgba(240,200,100,0.85)', border: 'rgba(240,180,60,0.28)' },
-  OA:        { bg: 'rgba(255,140,0,0.12)',   text: 'rgba(255,165,60,0.9)',   border: 'rgba(255,140,0,0.28)' },
-  Interview: { bg: 'rgba(60,140,255,0.12)',  text: 'rgba(100,180,255,0.9)',  border: 'rgba(60,140,255,0.28)' },
-  Offer:     { bg: 'rgba(120,200,80,0.12)',  text: 'rgba(150,230,100,0.85)', border: 'rgba(120,200,80,0.28)' },
-  Rejected:  { bg: 'rgba(255,80,80,0.10)',   text: 'rgba(255,120,120,0.8)',  border: 'rgba(255,80,80,0.22)' },
+  Applied: { bg: 'rgba(212,175,108,0.1)', text: '#D4AF6C', border: 'rgba(212,175,108,0.25)' },
+  OA: { bg: 'rgba(232,160,80,0.1)', text: 'rgba(232,185,100,0.9)', border: 'rgba(232,160,80,0.25)' },
+  Interview: { bg: 'rgba(100,170,255,0.1)', text: 'rgba(130,190,255,0.9)', border: 'rgba(100,170,255,0.25)' },
+  Offer: { bg: 'rgba(125,216,184,0.1)', text: '#7DD8B8', border: 'rgba(125,216,184,0.25)' },
+  Rejected: { bg: 'rgba(212,112,112,0.1)', text: '#D47070', border: 'rgba(212,112,112,0.22)' },
 };
 
 const STATUS_OPTIONS = ['Applied', 'OA', 'Interview', 'Offer', 'Rejected'];
@@ -44,9 +56,9 @@ function StatusSelect({ appId, status, onUpdate }: {
         onUpdate(appId, next);
       }}
       style={{
-        fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+        fontSize: 9.5, fontWeight: 500, letterSpacing: '0.08em',
         textTransform: 'uppercase', padding: '2px 8px',
-        borderRadius: 20, fontFamily: "'DM Sans', sans-serif",
+        borderRadius: 18, fontFamily: "'JetBrains Mono', monospace",
         background: c.bg, color: c.text, border: `1px solid ${c.border}`,
         cursor: 'pointer', appearance: 'none', outline: 'none',
       }}
@@ -94,14 +106,14 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
       transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
       style={{
         position: 'absolute',
-        top: 48, right: 0, bottom: 0,
+        top: 52, right: 0, bottom: 0,
         width: '100%',
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
-        background: 'linear-gradient(150deg, #0a2020 0%, #0e2838 40%, #0c1a2e 100%)',
-        borderLeft: '1.5px solid rgba(240,180,60,0.35)',
-        boxShadow: '-8px 0 40px rgba(0,0,0,0.6)',
+        background: 'linear-gradient(160deg, #101828 0%, #141B2D 60%, #0E1420 100%)',
+        borderLeft: `1.5px solid ${C.borderGold}`,
+        boxShadow: '-8px 0 40px rgba(0,0,0,0.5)',
         overflow: 'hidden',
       }}
     >
@@ -109,44 +121,46 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '20px 24px',
-        borderBottom: '1px solid rgba(240,180,60,0.2)',
-        background: 'rgba(0,0,0,0.25)',
+        borderBottom: `1px solid ${C.borderGlass}`,
+        background: 'rgba(14, 20, 32, 0.6)',
+        backdropFilter: 'blur(16px)',
         flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: 'rgba(240,180,60,0.12)',
-            border: '1px solid rgba(240,180,60,0.28)',
+            width: 34, height: 34, borderRadius: 10,
+            background: 'rgba(212,175,108,0.1)',
+            border: `1px solid ${C.borderGold}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Briefcase size={15} color="rgba(240,200,100,0.85)" />
+            <Briefcase size={15} color={C.accent} />
           </div>
           <div>
             <div style={{
               fontFamily: "'Instrument Serif', serif",
-              fontSize: 20, fontWeight: 400, color: '#ffe8b0',
+              fontStyle: 'italic',
+              fontSize: 20, fontWeight: 400, color: C.textPrimary,
               letterSpacing: '-0.01em',
             }}>
               Career Dashboard
             </div>
             <div style={{
-              fontSize: 11, color: 'rgba(200,220,210,0.45)',
-              fontFamily: "'DM Sans', sans-serif",
-              letterSpacing: '0.04em',
+              fontSize: 10, color: C.textDim,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontWeight: 300,
             }}>
               {applications.length} application{applications.length !== 1 ? 's' : ''} tracked
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             onClick={fetchApplications}
             title="Refresh"
             style={{
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: loading ? 'rgba(240,200,100,0.6)' : 'rgba(240,200,100,0.4)',
+              color: loading ? C.accent : C.textDim,
               width: 30, height: 30, borderRadius: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.2s',
@@ -162,33 +176,33 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
           <button
             onClick={onClose}
             style={{
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,240,170,0.4)',
+              background: 'rgba(245, 237, 216, 0.06)', border: `1px solid ${C.borderGlass}`,
+              cursor: 'pointer', color: C.textDim,
               width: 30, height: 30, borderRadius: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,240,170,0.8)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,240,170,0.4)'; }}
+            onMouseEnter={e => { e.currentTarget.style.color = C.textPrimary; }}
+            onMouseLeave={e => { e.currentTarget.style.color = C.textDim; }}
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       </div>
 
-      {/* Content — side-by-side columns, each independently scrollable */}
+      {/* Two-column body */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
 
-        {/* ── LEFT COLUMN: Applications (wider, flex 3) ── */}
+        {/* LEFT: Applications */}
         <div style={{
-          flex: 3, overflowY: 'auto', padding: '20px 16px 20px 24px',
-          display: 'flex', flexDirection: 'column', gap: 10,
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          flex: 3, overflowY: 'auto', padding: '18px 14px 18px 22px',
+          display: 'flex', flexDirection: 'column', gap: 8,
+          borderRight: `1px solid ${C.borderGlass}`,
         }}>
           <div style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.14em',
-            textTransform: 'uppercase', color: 'rgba(240,200,100,0.5)',
-            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 9.5, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: C.accent, opacity: 0.6,
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 300,
             marginBottom: 4, flexShrink: 0,
           }}>
             Applications
@@ -199,23 +213,23 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
               <motion.div
                 animate={{ opacity: [0.3, 1, 0.3] }}
                 transition={{ duration: 1.4, repeat: Infinity }}
-                style={{ fontSize: 12, color: 'rgba(200,220,210,0.4)', fontFamily: "'DM Sans', sans-serif" }}
+                style={{ fontSize: 12, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}
               >
-                Loading...
+                Loading…
               </motion.div>
             </div>
           ) : applications.length === 0 ? (
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '40px 16px', gap: 12,
-              background: 'rgba(255,255,255,0.025)',
-              borderRadius: 12,
-              border: '1px dashed rgba(240,180,60,0.15)',
+              background: C.glass, backdropFilter: 'blur(8px)',
+              borderRadius: 13,
+              border: `1px dashed ${C.borderGold}`,
             }}>
-              <Briefcase size={28} color="rgba(240,180,60,0.25)" />
-              <div style={{ fontSize: 12, color: 'rgba(200,220,210,0.4)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center', lineHeight: 1.6 }}>
+              <Briefcase size={26} color={C.textDim} />
+              <div style={{ fontSize: 12, color: C.textDim, fontFamily: "'DM Sans', sans-serif", textAlign: 'center', lineHeight: 1.65 }}>
                 No applications yet.<br />
-                <span style={{ fontSize: 11, opacity: 0.7 }}>Say &ldquo;apply to internships&rdquo; to get started.</span>
+                <span style={{ fontSize: 11, opacity: 0.7 }}>Say "apply to internships" to get started.</span>
               </div>
             </div>
           ) : (
@@ -223,26 +237,27 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
               <div
                 key={app.id}
                 style={{
-                  background: 'rgba(255,255,255,0.035)',
-                  border: '1px solid rgba(240,180,60,0.12)',
-                  borderRadius: 10,
-                  padding: '12px 14px',
+                  background: C.glass,
+                  backdropFilter: 'blur(8px)',
+                  border: `1px solid ${C.borderGlass}`,
+                  borderRadius: 11,
+                  padding: '11px 13px',
                   display: 'flex', alignItems: 'flex-start',
                   justifyContent: 'space-between', gap: 10,
-                  flexShrink: 0,
+                  flexShrink: 0, transition: 'border-color 0.15s',
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#f0e8d0', fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: C.textPrimary, fontFamily: "'DM Sans', sans-serif" }}>
                       {app.company}
                     </span>
                     <StatusSelect appId={app.id} status={app.status} onUpdate={handleStatusUpdate} />
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(200,220,210,0.6)', fontFamily: "'DM Sans', sans-serif", marginBottom: 3 }}>
+                  <div style={{ fontSize: 11.5, color: C.textSecond, fontFamily: "'DM Sans', sans-serif", marginBottom: 3 }}>
                     {app.role_title}
                   </div>
-                  <div style={{ fontSize: 10, color: 'rgba(200,220,210,0.35)', fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 300 }}>
                     {formatDate(app.applied_date)}
                   </div>
                 </div>
@@ -257,15 +272,15 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
                     title="Open job listing in browser"
                     style={{
                       background: 'transparent', border: 'none', cursor: 'pointer',
-                      color: 'rgba(240,200,100,0.45)',
+                      color: C.textDim,
                       display: 'flex', alignItems: 'center',
                       flexShrink: 0, marginTop: 2,
                       transition: 'color 0.15s', padding: 4, borderRadius: 6,
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(240,200,100,0.85)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(240,200,100,0.45)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.color = C.accent; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = C.textDim; }}
                   >
-                    <ExternalLink size={13} />
+                    <ExternalLink size={12} />
                   </button>
                 )}
               </div>
@@ -273,15 +288,15 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
           )}
         </div>
 
-        {/* ── RIGHT COLUMN: Tailored Resumes (narrower, flex 2) ── */}
+        {/* RIGHT: Tailored Resumes */}
         <div style={{
-          flex: 2, overflowY: 'auto', padding: '20px 24px 20px 16px',
+          flex: 2, overflowY: 'auto', padding: '18px 22px 18px 14px',
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.14em',
-            textTransform: 'uppercase', color: 'rgba(200,220,210,0.4)',
-            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 9.5, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: C.teal, opacity: 0.6,
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 300,
             marginBottom: 4, flexShrink: 0,
           }}>
             Tailored Resumes
@@ -289,14 +304,14 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
 
           {applications.filter(app => app.tailored_resume_path).length === 0 ? (
             <div style={{
-              background: 'rgba(255,255,255,0.02)',
-              borderRadius: 10,
-              border: '1px dashed rgba(255,255,255,0.07)',
+              background: C.glass, backdropFilter: 'blur(8px)',
+              borderRadius: 11,
+              border: `1px dashed ${C.borderGlass}`,
               padding: '28px 12px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
             }}>
-              <FileText size={22} color="rgba(200,220,210,0.2)" />
-              <div style={{ fontSize: 11, color: 'rgba(200,220,210,0.3)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center', lineHeight: 1.6 }}>
+              <FileText size={22} color={C.textDim} />
+              <div style={{ fontSize: 11, color: C.textDim, fontFamily: "'DM Sans', sans-serif", textAlign: 'center', lineHeight: 1.65 }}>
                 Tailored resumes will appear here once the AI generates them.
               </div>
             </div>
@@ -305,9 +320,10 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
               <div
                 key={app.id}
                 style={{
-                  background: 'rgba(255,255,255,0.025)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: 10,
+                  background: C.glass,
+                  backdropFilter: 'blur(8px)',
+                  border: `1px solid ${C.borderGlass}`,
+                  borderRadius: 11,
                   padding: '10px 12px',
                   display: 'flex', alignItems: 'center',
                   justifyContent: 'space-between', gap: 8,
@@ -315,12 +331,12 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                  <FileText size={13} color="rgba(100,230,170,0.7)" style={{ flexShrink: 0 }} />
+                  <FileText size={12} color={C.green} style={{ flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: '#f0e8d0', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11, color: C.textPrimary, fontFamily: "'DM Sans', sans-serif", fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {app.company}
                     </div>
-                    <div style={{ fontSize: 10, color: 'rgba(100,230,170,0.55)', fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                    <div style={{ fontSize: 10, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontWeight: 300, marginTop: 2 }}>
                       Ready
                     </div>
                   </div>
@@ -332,14 +348,14 @@ export function CareerDashboard({ isOpen, onClose }: CareerDashboardProps) {
                     ipc?.send('open-file', app.tailored_resume_path);
                   }}
                   style={{
-                    background: 'rgba(80,200,150,0.1)',
-                    border: '1px solid rgba(80,200,150,0.22)',
-                    borderRadius: 6, padding: '2px 8px',
+                    background: 'rgba(125,216,184,0.08)',
+                    border: '1px solid rgba(125,216,184,0.2)',
+                    borderRadius: 7, padding: '3px 9px',
                     fontSize: 10, fontWeight: 500,
-                    color: 'rgba(100,230,170,0.7)',
+                    color: C.green,
                     cursor: 'pointer',
                     fontFamily: "'DM Sans', sans-serif",
-                    flexShrink: 0,
+                    flexShrink: 0, transition: 'all 0.15s',
                   }}
                 >
                   Open
